@@ -1,0 +1,117 @@
+const nodemailer = require('nodemailer');
+
+// Create transporter with environment variables
+const createTransporter = () => {
+    return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS // Use App Password for Gmail
+        }
+    });
+};
+
+/**
+ * Send email with optional PDF attachment
+ * @param {Object} options - Email options
+ * @param {string} options.to - Recipient email
+ * @param {string} options.subject - Email subject
+ * @param {string} options.html - HTML content
+ * @param {Buffer} [options.pdfBuffer] - PDF attachment buffer
+ * @param {string} [options.pdfFilename] - PDF filename
+ */
+const sendEmail = async ({ to, subject, html, pdfBuffer, pdfFilename }) => {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+        from: `"Amagriya Gorden" <${process.env.EMAIL_USER}>`,
+        to,
+        subject,
+        html,
+        attachments: pdfBuffer ? [{
+            filename: pdfFilename || 'document.pdf',
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+        }] : []
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent:', info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('Email error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generate invoice email HTML template
+ * @param {Object} document - Document data
+ */
+const generateInvoiceEmailTemplate = (document) => {
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0
+        }).format(amount);
+    };
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; padding: 20px 0; border-bottom: 3px solid #EB216A; }
+            .header h1 { color: #EB216A; margin: 0; }
+            .content { padding: 30px 0; }
+            .info-box { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .amount { font-size: 24px; color: #EB216A; font-weight: bold; }
+            .footer { text-align: center; padding: 20px 0; border-top: 1px solid #eee; color: #666; font-size: 12px; }
+            .btn { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #EB216A, #ff6b9d); color: white; text-decoration: none; border-radius: 25px; margin: 10px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Amagriya Gorden</h1>
+                <p>Pusat Gorden Berkualitas</p>
+            </div>
+            <div class="content">
+                <p>Yth. <strong>${document.customer_name}</strong>,</p>
+                <p>Terima kasih telah mempercayakan kebutuhan gorden Anda kepada kami.</p>
+                <p>Berikut adalah ${document.type === 'QUOTATION' ? 'Surat Penawaran' : 'Invoice'} untuk Anda:</p>
+                
+                <div class="info-box">
+                    <p><strong>No. Dokumen:</strong> ${document.document_number}</p>
+                    <p><strong>Tanggal:</strong> ${new Date(document.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p><strong>Total:</strong> <span class="amount">${formatCurrency(document.total_amount)}</span></p>
+                    ${document.discount_amount > 0 ? `<p><strong>Diskon:</strong> ${formatCurrency(document.discount_amount)}</p>` : ''}
+                </div>
+                
+                <p>Dokumen lengkap terlampir dalam email ini.</p>
+                
+                <p>Jika ada pertanyaan, silakan hubungi kami:</p>
+                <ul>
+                    <li>WhatsApp: 0812-3456-7890</li>
+                    <li>Email: info@amagriyagorden.com</li>
+                </ul>
+            </div>
+            <div class="footer">
+                <p>Amagriya Gorden - Pusat Gorden Berkualitas</p>
+                <p>© ${new Date().getFullYear()} All rights reserved</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+};
+
+module.exports = {
+    sendEmail,
+    generateInvoiceEmailTemplate
+};

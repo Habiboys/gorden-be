@@ -2,47 +2,34 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable('gallery_projects', {
+        await queryInterface.createTable('calculator_leads', {
             id: {
                 allowNull: false,
                 primaryKey: true,
                 type: Sequelize.UUID,
                 defaultValue: Sequelize.UUIDV4
             },
-            title: {
+            name: {
                 type: Sequelize.STRING
             },
-            category: {
+            phone: {
                 type: Sequelize.STRING
             },
-            type: {
+            email: {
                 type: Sequelize.STRING
             },
-            installation_type: {
+            calculator_type: {
                 type: Sequelize.STRING
             },
-            location: {
-                type: Sequelize.STRING
+            estimated_price: {
+                type: Sequelize.DECIMAL(15, 2)
             },
-            description: {
-                type: Sequelize.TEXT
+            calculation_data: {
+                type: Sequelize.JSON
             },
-            date: {
-                type: Sequelize.DATEONLY
-            },
-            completion_date: {
-                type: Sequelize.DATEONLY
-            },
-            image_url: {
-                type: Sequelize.STRING
-            },
-            sort_order: {
-                type: Sequelize.INTEGER,
-                defaultValue: 0
-            },
-            is_featured: {
-                type: Sequelize.BOOLEAN,
-                defaultValue: false
+            status: {
+                type: Sequelize.ENUM('NEW', 'CONTACTED', 'CONVERTED', 'CLOSED'),
+                defaultValue: 'NEW'
             },
             created_at: {
                 allowNull: false,
@@ -55,6 +42,6 @@ module.exports = {
         });
     },
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable('gallery_projects');
+        await queryInterface.dropTable('calculator_leads');
     }
 };

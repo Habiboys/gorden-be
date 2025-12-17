@@ -2,7 +2,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
-        await queryInterface.createTable('CalculatorComponents', {
+        await queryInterface.createTable('calculator_components', {
             id: {
                 allowNull: false,
                 autoIncrement: true,
@@ -17,7 +17,7 @@ module.exports = {
                 type: Sequelize.STRING
             },
             price: {
-                type: Sequelize.DECIMAL
+                type: Sequelize.DECIMAL(15, 2)
             },
             image_url: {
                 type: Sequelize.STRING
@@ -39,6 +39,6 @@ module.exports = {
         });
     },
     async down(queryInterface, Sequelize) {
-        await queryInterface.dropTable('CalculatorComponents');
+        await queryInterface.dropTable('calculator_components');
     }
 };

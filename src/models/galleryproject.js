@@ -15,11 +15,16 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true
         },
         title: DataTypes.STRING,
-        category: DataTypes.ENUM('RESIDENTIAL', 'APARTMENT', 'OFFICE', 'CAFE_RESTO'),
+        category: DataTypes.STRING, // Changed from ENUM
+        type: DataTypes.STRING,
         installation_type: DataTypes.STRING,
         location: DataTypes.STRING,
-        completion_date: DataTypes.DATEONLY,
-        image_url: DataTypes.STRING
+        description: DataTypes.TEXT,
+        date: DataTypes.DATEONLY,
+        completion_date: DataTypes.DATEONLY, // Keep existing if needed, or map to date. Migration didn't remove it. Frontend uses 'date'. Let's keep both or use one. Migration added 'date'.
+        image_url: DataTypes.STRING,
+        sort_order: { type: DataTypes.INTEGER, defaultValue: 0 },
+        is_featured: { type: DataTypes.BOOLEAN, defaultValue: false }
     }, {
         sequelize,
         modelName: 'GalleryProject',
