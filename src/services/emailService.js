@@ -111,7 +111,83 @@ const generateInvoiceEmailTemplate = (document) => {
     `;
 };
 
+/**
+ * Generate email verification HTML template
+ * @param {string} name - User name
+ * @param {string} verificationUrl - Verification URL
+ */
+const generateVerificationEmailTemplate = (name, verificationUrl) => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; padding: 20px 0; border-bottom: 3px solid #EB216A; }
+            .header h1 { color: #EB216A; margin: 0; }
+            .content { padding: 30px 0; }
+            .info-box { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+            .footer { text-align: center; padding: 20px 0; border-top: 1px solid #eee; color: #666; font-size: 12px; }
+            .btn { display: inline-block; padding: 14px 40px; background: linear-gradient(135deg, #EB216A, #ff6b9d); color: white; text-decoration: none; border-radius: 25px; margin: 15px 0; font-weight: bold; }
+            .btn:hover { opacity: 0.9; }
+            .note { font-size: 12px; color: #888; margin-top: 15px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Amagriya Gorden</h1>
+                <p>Pusat Gorden Berkualitas</p>
+            </div>
+            <div class="content">
+                <p>Halo <strong>${name}</strong>,</p>
+                <p>Terima kasih telah mendaftar di Amagriya Gorden! Untuk melanjutkan, silakan verifikasi alamat email Anda dengan mengklik tombol di bawah ini:</p>
+                
+                <div class="info-box">
+                    <a href="${verificationUrl}" class="btn">Verifikasi Email</a>
+                    <p class="note">Atau copy link berikut ke browser Anda:</p>
+                    <p style="word-break: break-all; font-size: 12px; color: #666;">${verificationUrl}</p>
+                </div>
+                
+                <p>Link verifikasi ini akan kadaluarsa dalam <strong>24 jam</strong>.</p>
+                <p>Jika Anda tidak membuat akun di Amagriya Gorden, abaikan email ini.</p>
+                
+                <p>Salam hangat,<br/>Tim Amagriya Gorden</p>
+            </div>
+            <div class="footer">
+                <p>Amagriya Gorden - Pusat Gorden Berkualitas</p>
+                <p>© ${new Date().getFullYear()} All rights reserved</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+};
+
+/**
+ * Send verification email
+ * @param {string} email - Recipient email
+ * @param {string} name - User name
+ * @param {string} token - Verification token
+ */
+const sendVerificationEmail = async (email, name, token) => {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const verificationUrl = `${frontendUrl}/verify-email/${token}`;
+
+    const html = generateVerificationEmailTemplate(name, verificationUrl);
+
+    return sendEmail({
+        to: email,
+        subject: 'Verifikasi Email - Amagriya Gorden',
+        html
+    });
+};
+
 module.exports = {
     sendEmail,
-    generateInvoiceEmailTemplate
+    generateInvoiceEmailTemplate,
+    generateVerificationEmailTemplate,
+    sendVerificationEmail
 };

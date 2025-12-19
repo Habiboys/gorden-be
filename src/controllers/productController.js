@@ -3,7 +3,7 @@ const { Op } = Sequelize;
 
 const getProducts = async (req, res) => {
     try {
-        const { category, search, sort } = req.query;
+        const { category, search, sort, featured, limit } = req.query;
         let where = {};
         let order = [['created_at', 'DESC']];
 
@@ -18,17 +18,29 @@ const getProducts = async (req, res) => {
             where.name = { [Op.like]: `%${search}%` };
         }
 
+        // Filter by featured
+        if (featured === 'true') {
+            where.is_featured = true;
+        }
+
         if (sort === 'price_asc') {
             order = [['price', 'ASC']];
         } else if (sort === 'price_desc') {
             order = [['price', 'DESC']];
         }
 
-        const products = await Product.findAll({
+        const queryOptions = {
             where,
             order,
             include: [{ model: Category, attributes: ['name', 'slug'] }]
-        });
+        };
+
+        // Add limit if specified
+        if (limit) {
+            queryOptions.limit = parseInt(limit, 10);
+        }
+
+        const products = await Product.findAll(queryOptions);
 
         res.json({ success: true, data: products });
     } catch (error) {

@@ -31,7 +31,13 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             unique: true
         },
-        referred_by: DataTypes.UUID
+        referred_by: DataTypes.UUID,
+        email_verified: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+        },
+        verification_token: DataTypes.STRING,
+        verification_token_expires: DataTypes.DATE
     }, {
         sequelize,
         modelName: 'User',
