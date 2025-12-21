@@ -96,23 +96,36 @@ const generateDocumentPDF = (document) => {
             yPos += 30;
 
             // Parse line items from JSON data
-            const items = document.data?.items || document.data?.windows || [];
+            // Handle case where data might be a string (from some databases)
+            let docData = document.data;
+            if (typeof docData === 'string') {
+                try {
+                    docData = JSON.parse(docData);
+                } catch (e) {
+                    console.error('Failed to parse document data:', e);
+                    docData = {};
+                }
+            }
+
+            const items = docData?.items || docData?.windows || [];
             let itemNumber = 1;
 
             // Handle nested structure (windows with items inside)
-            if (document.data?.windows) {
-                document.data.windows.forEach(window => {
+            if (docData?.windows && Array.isArray(docData.windows)) {
+                docData.windows.forEach(window => {
                     // Window title
                     doc.fillColor('#EB216A')
                         .font('Helvetica-Bold')
                         .fontSize(9)
-                        .text(`${window.title} - ${window.size || ''}`, 55, yPos);
+                        .text(`${window.title || ''} - ${window.size || ''}`, 55, yPos);
                     yPos += 15;
 
                     // Window items
-                    if (window.items) {
+                    if (window.items && Array.isArray(window.items)) {
                         window.items.forEach(item => {
-                            const subtotal = (item.price || 0) * (item.quantity || 1);
+                            // Calculate subtotal with discount
+                            const discountedPrice = (item.price || 0) * (1 - (item.discount || 0) / 100);
+                            const subtotal = discountedPrice * (item.quantity || 1);
 
                             doc.fillColor('#333')
                                 .font('Helvetica')
@@ -137,7 +150,9 @@ const generateDocumentPDF = (document) => {
             } else if (Array.isArray(items)) {
                 // Flat items structure
                 items.forEach(item => {
-                    const subtotal = (item.price || 0) * (item.quantity || 1);
+                    // Calculate subtotal with discount
+                    const discountedPrice = (item.price || 0) * (1 - (item.discount || 0) / 100);
+                    const subtotal = discountedPrice * (item.quantity || 1);
 
                     doc.fillColor('#333')
                         .font('Helvetica')
@@ -197,10 +212,10 @@ const generateDocumentPDF = (document) => {
                 .text('Informasi Pembayaran:', 50, yPos);
 
             yPos += 15;
+            const paymentInfo = docData?.paymentTerms || 'Bank BRI: 0763 0100 1160 564 a.n. ABDUL RAHIM';
             doc.font('Helvetica')
                 .fontSize(9)
-                .text('Bank BRI: 0763 0100 1160 564', 50, yPos)
-                .text('a.n. ABDUL RAHIM', 50, yPos + 12);
+                .text(paymentInfo, 50, yPos, { width: 300 });
 
             // ============ REFERRAL INFO ============
             if (document.referral_code) {
@@ -212,13 +227,13 @@ const generateDocumentPDF = (document) => {
             }
 
             // ============ NOTES ============
-            if (document.data?.notes) {
+            if (docData?.notes) {
                 yPos += 30;
                 doc.fillColor('#666')
                     .font('Helvetica')
                     .fontSize(8)
                     .text('Catatan:', 50, yPos)
-                    .text(document.data.notes, 50, yPos + 12, { width: 300 });
+                    .text(docData.notes, 50, yPos + 12, { width: 300 });
             }
 
             // ============ FOOTER ============

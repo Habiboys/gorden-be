@@ -1,12 +1,99 @@
-const { CalculatorComponent } = require('../models');
+const { CalculatorComponent, Product } = require('../models');
 
-const getComponents = async (req, res) => {
+// Get all components as flat list (for Admin page)
+const getAll = async (req, res) => {
     try {
         const components = await CalculatorComponent.findAll();
 
+        // Return flat array with formatted data
+        const formattedComponents = components.map(comp => ({
+            id: comp.id,
+            name: comp.name,
+            type: comp.type,
+            price: parseFloat(comp.price) || 0,
+            description: comp.description || '',
+            image: comp.image_url || '',
+            maxWidth: comp.max_width || null
+        }));
+
         res.json({
             success: true,
-            data: components
+            data: formattedComponents
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+};
+
+// Get components grouped by type (for User Calculator page)
+const getGrouped = async (req, res) => {
+    try {
+        const components = await CalculatorComponent.findAll();
+
+        // Group components by type for frontend use
+        const grouped = {
+            relGorden: [],
+            tassel: [],
+            hook: [],
+            kainVitrase: [],
+            relVitrase: [],
+            products: []
+        };
+
+        components.forEach(comp => {
+            const data = {
+                id: comp.id,
+                name: comp.name,
+                price: parseFloat(comp.price) || 0,
+                description: comp.description || '',
+                image: comp.image_url || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?w=400&h=300&fit=crop',
+                maxWidth: comp.max_width || 500
+            };
+
+            switch (comp.type) {
+                case 'rel_gorden':
+                    grouped.relGorden.push(data);
+                    break;
+                case 'tassel':
+                    grouped.tassel.push(data);
+                    break;
+                case 'hook':
+                    grouped.hook.push(data);
+                    break;
+                case 'vitrase_kain':
+                    grouped.kainVitrase.push(data);
+                    break;
+                case 'vitrase_rel':
+                    grouped.relVitrase.push(data);
+                    break;
+            }
+        });
+
+        // Also fetch products for the calculator
+        try {
+            const products = await Product.findAll({
+                where: { status: 'ACTIVE' },
+                limit: 20
+            });
+            grouped.products = products.map(p => ({
+                id: p.id,
+                name: p.name,
+                price: parseFloat(p.price_self_measure) || parseFloat(p.price) || 0,
+                image: p.images && p.images[0] ? p.images[0] : 'https://images.unsplash.com/photo-1615529182904-14819c35db37?w=400&h=300&fit=crop',
+                category: p.category || 'Gorden'
+            }));
+        } catch (productError) {
+            console.log('Could not fetch products for calculator:', productError.message);
+        }
+
+        res.json({
+            success: true,
+            data: grouped
         });
     } catch (error) {
         console.error(error);
@@ -19,7 +106,8 @@ const getComponents = async (req, res) => {
 };
 
 module.exports = {
-    getComponents,
+    getAll,
+    getGrouped,
     create: async (req, res) => {
         try {
             const component = await CalculatorComponent.create(req.body);
