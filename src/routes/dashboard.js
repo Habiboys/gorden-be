@@ -1,13 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
-const authenticate = require('../middleware/authMiddleware');
-const adminMiddleware = require('../middleware/adminMiddleware');
+const auth = require('../middleware/auth');
 
 // Get dashboard statistics (admin only)
-router.get('/stats', authenticate, adminMiddleware, dashboardController.getStats);
-
-
+router.get('/stats', auth('ADMIN'), dashboardController.getStats);
 
 module.exports = router;
-

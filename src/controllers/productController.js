@@ -1,4 +1,4 @@
-const { Product, Category, ProductPackage, Sequelize } = require('../models');
+const { Product, Category, SubCategory, ProductPackage, Sequelize } = require('../models');
 const { Op } = Sequelize;
 
 const getProducts = async (req, res) => {
@@ -32,7 +32,10 @@ const getProducts = async (req, res) => {
         const queryOptions = {
             where,
             order,
-            include: [{ model: Category, attributes: ['name', 'slug'] }]
+            include: [
+                { model: Category, attributes: ['name', 'slug'] },
+                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] }
+            ]
         };
 
         // Add limit if specified
@@ -55,6 +58,7 @@ const getProductDetail = async (req, res) => {
         const product = await Product.findByPk(id, {
             include: [
                 { model: Category, attributes: ['name', 'slug'] },
+                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: ProductPackage }
             ]
         });
@@ -83,17 +87,17 @@ const getCategories = async (req, res) => {
 const createProduct = async (req, res) => {
     try {
         const {
-            category_id, name, sku, subtitle, description, information,
+            category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
-            stock, discount_percent, price_unit, images, features, how_to_order,
+            stock, discount_percent, max_length, price_unit, images, features, how_to_order,
             is_featured, is_new_arrival, is_best_seller,
             meta_title, meta_description, meta_keywords, status
         } = req.body;
 
         const product = await Product.create({
-            category_id, name, sku, subtitle, description, information,
+            category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
-            stock, discount_percent, price_unit, images, features, how_to_order,
+            stock, discount_percent, max_length, price_unit, images, features, how_to_order,
             is_featured, is_new_arrival, is_best_seller,
             meta_title, meta_description, meta_keywords, status
         });

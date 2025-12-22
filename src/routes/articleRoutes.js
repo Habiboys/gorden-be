@@ -1,16 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const articleController = require('../controllers/articleController');
-const optionalAuth = require('../middleware/optionalAuthMiddleware');
-const authMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 
 // GET routes use optional auth - allows public access but populates req.user if authenticated
-router.get('/', optionalAuth, articleController.getAll);
-router.get('/:id', optionalAuth, articleController.getOne);
+router.get('/', auth(null, { optional: true }), articleController.getAll);
+router.get('/:id', auth(null, { optional: true }), articleController.getOne);
 
-// Write operations require authentication
-router.post('/', authMiddleware, articleController.create);
-router.put('/:id', authMiddleware, articleController.update);
-router.delete('/:id', authMiddleware, articleController.delete);
+// Write operations require admin authentication
+router.post('/', auth('ADMIN'), articleController.create);
+router.put('/:id', auth('ADMIN'), articleController.update);
+router.delete('/:id', auth('ADMIN'), articleController.delete);
 
 module.exports = router;
