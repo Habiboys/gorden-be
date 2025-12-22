@@ -29,6 +29,7 @@ const galleryRoutes = require('./routes/galleryRoutes');
 const dashboardRoutes = require('./routes/dashboard');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const subcategoryRoutes = require('./routes/subcategoryRoutes');
+const calculatorTypeRoutes = require('./routes/calculatorTypeRoutes');
 
 // Serve static files
 app.use('/uploads', express.static('uploads'));
@@ -36,6 +37,7 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', productRoutes); // Reverted to generic mount because productRoutes handles /products and /categories
 app.use('/api/v1/calculator-components', calculatorRoutes);
+app.use('/api/v1/calculator', calculatorTypeRoutes);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/referrals', referralRoutes);
 app.use('/api/v1/admin', adminRoutes);

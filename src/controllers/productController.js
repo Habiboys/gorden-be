@@ -3,15 +3,21 @@ const { Op } = Sequelize;
 
 const getProducts = async (req, res) => {
     try {
-        const { category, search, sort, featured, limit } = req.query;
+        const { category, search, sort, featured, new_arrival, best_seller, limit, category_id } = req.query;
         let where = {};
         let order = [['created_at', 'DESC']];
 
+        // Filter by category slug
         if (category) {
             const cat = await Category.findOne({ where: { slug: category } });
             if (cat) {
                 where.category_id = cat.id;
             }
+        }
+
+        // Filter by category_id directly
+        if (category_id) {
+            where.category_id = parseInt(category_id, 10);
         }
 
         if (search) {
@@ -21,6 +27,16 @@ const getProducts = async (req, res) => {
         // Filter by featured
         if (featured === 'true') {
             where.is_featured = true;
+        }
+
+        // Filter by new arrival
+        if (new_arrival === 'true') {
+            where.is_new_arrival = true;
+        }
+
+        // Filter by best seller
+        if (best_seller === 'true') {
+            where.is_best_seller = true;
         }
 
         if (sort === 'price_asc') {

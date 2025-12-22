@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 
 // GET routes use optional auth - allows public access but populates req.user if authenticated
 router.get('/', auth(null, { optional: true }), articleController.getAll);
+router.get('/slug/:slug', auth(null, { optional: true }), articleController.getBySlug);
 router.get('/:id', auth(null, { optional: true }), articleController.getOne);
 
 // Write operations require admin authentication

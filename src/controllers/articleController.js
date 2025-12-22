@@ -38,6 +38,36 @@ exports.getOne = async (req, res) => {
     }
 };
 
+// Get article by slug - for public access (only published)
+exports.getBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+
+        const article = await Article.findOne({
+            where: { slug }
+        });
+
+        if (!article) {
+            return res.status(404).json({ success: false, message: 'Article not found' });
+        }
+
+        // For non-admin users, only show published articles
+        if (!req.user || req.user.role !== 'ADMIN') {
+            if (article.status !== 'PUBLISHED') {
+                return res.status(404).json({ success: false, message: 'Article not found' });
+            }
+        }
+
+        // Increment view count
+        article.view_count = (article.view_count || 0) + 1;
+        await article.save();
+
+        res.json({ success: true, data: article });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 exports.create = async (req, res) => {
     try {
         const article = await Article.create(req.body);

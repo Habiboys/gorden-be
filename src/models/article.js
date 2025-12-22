@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
         excerpt: DataTypes.TEXT,
         content: DataTypes.TEXT,
         category: DataTypes.STRING,
+        tags: DataTypes.TEXT, // Comma separated tags
         author: DataTypes.STRING,
         image_url: DataTypes.STRING,
         is_featured: {
