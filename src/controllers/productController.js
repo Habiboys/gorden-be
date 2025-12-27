@@ -105,7 +105,7 @@ const createProduct = async (req, res) => {
         const {
             category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
-            stock, discount_percent, max_length, price_unit, images, features, how_to_order,
+            stock, discount_percent, min_width, max_width, min_length, max_length, price_unit, images, features, how_to_order,
             is_featured, is_new_arrival, is_best_seller,
             meta_title, meta_description, meta_keywords, status
         } = req.body;
@@ -113,7 +113,7 @@ const createProduct = async (req, res) => {
         const product = await Product.create({
             category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
-            stock, discount_percent, max_length, price_unit, images, features, how_to_order,
+            stock, discount_percent, min_width, max_width, min_length, max_length, price_unit, images, features, how_to_order,
             is_featured, is_new_arrival, is_best_seller,
             meta_title, meta_description, meta_keywords, status
         });

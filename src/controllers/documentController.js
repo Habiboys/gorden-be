@@ -110,7 +110,8 @@ exports.updateStatus = async (req, res) => {
                     // Create referral record
                     await Referral.create({
                         referrer_id: referrer.id,
-                        order_id: null, // We're linking to document, not order
+                        order_id: null,
+                        document_id: doc.id,
                         commission_amount: commissionAmount,
                         status: 'PENDING'
                     });
@@ -199,3 +200,50 @@ exports.sendEmail = async (req, res) => {
     }
 };
 
+/**
+ * Convert Quotation to Invoice
+ * Creates a new Invoice document based on the Quotation data
+ */
+exports.convertToInvoice = async (req, res) => {
+    try {
+        const quotation = await Document.findByPk(req.params.id);
+
+        if (!quotation) {
+            return res.status(404).json({ success: false, message: 'Document not found' });
+        }
+
+        if (quotation.type !== 'QUOTATION') {
+            return res.status(400).json({ success: false, message: 'Only Quotation can be converted to Invoice' });
+        }
+
+        // Generate new invoice number
+        const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const invoiceNumber = `INV-${date}-${random}`;
+
+        // Create new Invoice with Quotation data
+        const invoice = await Document.create({
+            type: 'INVOICE',
+            document_number: invoiceNumber,
+            customer_name: quotation.customer_name,
+            customer_email: quotation.customer_email,
+            customer_phone: quotation.customer_phone,
+            address: quotation.address,
+            total_amount: quotation.total_amount,
+            discount_amount: quotation.discount_amount,
+            data: quotation.data,
+            status: 'DRAFT',
+            referral_code: quotation.referral_code,
+            valid_until: null // Invoice doesn't have validity period
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Quotation converted to Invoice successfully',
+            data: invoice
+        });
+    } catch (error) {
+        console.error('Convert to Invoice error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};

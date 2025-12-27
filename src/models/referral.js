@@ -7,6 +7,7 @@ module.exports = (sequelize, DataTypes) => {
         static associate(models) {
             Referral.belongsTo(models.User, { foreignKey: 'referrer_id' });
             Referral.belongsTo(models.Order, { foreignKey: 'order_id' });
+            Referral.belongsTo(models.Document, { foreignKey: 'document_id' });
         }
     }
     Referral.init({
@@ -17,6 +18,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         referrer_id: DataTypes.UUID,
         order_id: DataTypes.UUID,
+        document_id: DataTypes.UUID,
         commission_amount: DataTypes.DECIMAL,
         status: {
             type: DataTypes.ENUM('PENDING', 'PAID'),

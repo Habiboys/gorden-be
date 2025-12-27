@@ -131,6 +131,10 @@ const getReferrerDetail = async (req, res) => {
                     model: Order,
                     attributes: ['id', 'total_amount', 'status', 'created_at'],
                     include: [{ model: User, attributes: ['id', 'name', 'email'] }]
+                },
+                {
+                    model: Document,
+                    attributes: ['id', 'customer_name', 'customer_email', 'total_amount', 'status', 'created_at']
                 }
             ],
             order: [['created_at', 'DESC']]
@@ -148,16 +152,23 @@ const getReferrerDetail = async (req, res) => {
             .reduce((sum, r) => sum + parseFloat(r.commission_amount || 0), 0);
 
         // Format referred customers for frontend
-        const referredCustomers = referrals.map(ref => ({
-            id: ref.id,
-            referrerId: ref.referrer_id,
-            customerName: ref.Order?.User?.name || 'Unknown',
-            customerEmail: ref.Order?.User?.email || '',
-            orderValue: parseFloat(ref.Order?.total_amount || 0),
-            commission: parseFloat(ref.commission_amount || 0),
-            status: ref.status === 'PAID' ? 'completed' : 'pending',
-            orderedAt: ref.created_at
-        }));
+        const referredCustomers = referrals.map(ref => {
+            const customerName = ref.Order?.User?.name || ref.Document?.customer_name || 'Unknown';
+            const customerEmail = ref.Order?.User?.email || ref.Document?.customer_email || '';
+            const orderValue = parseFloat(ref.Order?.total_amount || ref.Document?.total_amount || 0);
+            const orderedAt = ref.Order?.created_at || ref.Document?.created_at || ref.created_at;
+
+            return {
+                id: ref.id,
+                referrerId: ref.referrer_id,
+                customerName,
+                customerEmail,
+                orderValue,
+                commission: parseFloat(ref.commission_amount || 0),
+                status: ref.status === 'PAID' ? 'completed' : 'pending',
+                orderedAt
+            };
+        });
 
         res.json({
             success: true,

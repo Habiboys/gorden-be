@@ -3,7 +3,7 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
     class Document extends Model {
         static associate(models) {
-            // define association here
+            Document.hasOne(models.Referral, { foreignKey: 'document_id' });
         }
     }
     Document.init({
@@ -28,11 +28,13 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.ENUM('DRAFT', 'SENT', 'PAID', 'CANCELLED'),
             defaultValue: 'DRAFT'
         },
-        referral_code: DataTypes.STRING
+        referral_code: DataTypes.STRING,
+        valid_until: DataTypes.DATE
     }, {
         sequelize,
         modelName: 'Document',
         underscored: true,
+        timestamps: true,
     });
     return Document;
 };
