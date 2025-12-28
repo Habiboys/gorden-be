@@ -14,7 +14,10 @@ const getStats = async (req, res) => {
 
         const referrals = await Referral.findAll({
             where: { referrer_id: userId },
-            include: [{ model: Order, attributes: ['id', 'total_amount', 'created_at'] }],
+            include: [
+                { model: Order, attributes: ['id', 'total_amount', 'created_at'] },
+                { model: Document, attributes: ['id', 'total_amount', 'created_at'] }
+            ],
             order: [['created_at', 'DESC']]
         });
 

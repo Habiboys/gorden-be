@@ -1,15 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const productVariantController = require('../controllers/productVariantController');
 
 router.get('/products', productController.getProducts);
 router.get('/products/:id', productController.getProductDetail);
-router.post('/products', productController.createProduct); // New
-router.put('/products/:id', productController.updateProduct); // New
-router.delete('/products/:id', productController.deleteProduct); // Need to implement delete too? Controller didn't have delete. I should verify controller has delete. I didn't see delete in my update. I should add delete to controller too if needed. But for now create/update is priority.
+router.post('/products', productController.createProduct);
+router.put('/products/:id', productController.updateProduct);
+router.delete('/products/:id', productController.deleteProduct);
 router.get('/categories', productController.getCategories);
 router.post('/categories', productController.createCategory);
 router.put('/categories/:id', productController.updateCategory);
 router.delete('/categories/:id', productController.deleteCategory);
+
+// Product Variants
+router.get('/products/:productId/variants', productVariantController.getByProduct);
+router.get('/products/:productId/variants/match', productVariantController.getMatchingVariants);
+router.post('/products/:productId/variants', productVariantController.create);
+router.put('/variants/:id', productVariantController.update);
+router.delete('/variants/:id', productVariantController.delete);
 
 module.exports = router;

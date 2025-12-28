@@ -9,6 +9,7 @@ module.exports = (sequelize, DataTypes) => {
             Product.belongsTo(models.SubCategory, { foreignKey: 'subcategory_id' });
             Product.hasMany(models.ProductPackage, { foreignKey: 'product_id' });
             Product.hasMany(models.OrderItem, { foreignKey: 'product_id' });
+            Product.hasMany(models.ProductVariant, { foreignKey: 'product_id', as: 'variants' });
         }
     }
     Product.init({
@@ -45,6 +46,7 @@ module.exports = (sequelize, DataTypes) => {
         meta_title: DataTypes.STRING,
         meta_description: DataTypes.TEXT,
         meta_keywords: DataTypes.STRING,
+        sibak: DataTypes.INTEGER, // Added Sibak field
         status: {
             type: DataTypes.STRING, // Changed from ENUM to STRING for flexibility as per migration
             defaultValue: 'ACTIVE'

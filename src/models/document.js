@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
         discount_amount: DataTypes.DECIMAL,
         data: DataTypes.JSON,
         status: {
-            type: DataTypes.ENUM('DRAFT', 'SENT', 'PAID', 'CANCELLED'),
+            type: DataTypes.ENUM('DRAFT', 'SENT', 'OPENED', 'PENDING', 'PAID', 'ACCEPTED', 'REJECTED', 'CANCELLED'),
             defaultValue: 'DRAFT'
         },
         referral_code: DataTypes.STRING,
