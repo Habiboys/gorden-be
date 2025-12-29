@@ -11,15 +11,28 @@ exports.create = async (req, res) => {
 
 exports.getAll = async (req, res) => {
     try {
-        const { status } = req.query;
+        const { status, page = 1, limit = 20 } = req.query;
+        const offset = (page - 1) * limit;
         const where = {};
         if (status) where.status = status;
 
-        const leads = await CalculatorLead.findAll({
+        const { count, rows } = await CalculatorLead.findAndCountAll({
             where,
-            order: [['created_at', 'DESC']]
+            order: [['created_at', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset)
         });
-        res.json({ success: true, data: leads });
+
+        res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                totalPages: Math.ceil(count / limit),
+                limit: parseInt(limit)
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

@@ -8,7 +8,8 @@ const REFERRAL_COMMISSION_RATE = 0.10;
 
 exports.getAll = async (req, res) => {
     try {
-        const { type, status, search } = req.query;
+        const { type, status, search, page = 1, limit = 20 } = req.query;
+        const offset = (page - 1) * limit;
         const where = {};
         if (type) where.type = type;
         if (status) where.status = status;
@@ -21,11 +22,23 @@ exports.getAll = async (req, res) => {
             ];
         }
 
-        const documents = await Document.findAll({
+        const { count, rows } = await Document.findAndCountAll({
             where,
-            order: [['created_at', 'DESC']]
+            order: [['created_at', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset)
         });
-        res.json({ success: true, data: documents });
+
+        res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                totalPages: Math.ceil(count / limit),
+                limit: parseInt(limit)
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -221,6 +234,17 @@ exports.convertToInvoice = async (req, res) => {
         const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         const invoiceNumber = `INV-${date}-${random}`;
 
+        // Parse data if it's a string (prevent double-serialization)
+        let invoiceData = quotation.data;
+        if (typeof invoiceData === 'string') {
+            try {
+                invoiceData = JSON.parse(invoiceData);
+            } catch (e) {
+                console.error('Failed to parse quotation data for invoice:', e);
+            }
+        }
+        console.log('Converting quotation to invoice, data:', invoiceData);
+
         // Create new Invoice with Quotation data
         const invoice = await Document.create({
             type: 'INVOICE',
@@ -231,7 +255,7 @@ exports.convertToInvoice = async (req, res) => {
             address: quotation.address,
             total_amount: quotation.total_amount,
             discount_amount: quotation.discount_amount,
-            data: quotation.data,
+            data: invoiceData,  // Use parsed data
             status: 'DRAFT',
             referral_code: quotation.referral_code,
             valid_until: null // Invoice doesn't have validity period
