@@ -1,4 +1,4 @@
-const { CalculatorType, CalculatorTypeComponent, SubCategory, Product } = require('../models');
+const { CalculatorType, CalculatorTypeComponent, SubCategory, Product, Category } = require('../models');
 
 // ==================== CALCULATOR TYPES ====================
 
@@ -17,6 +17,10 @@ const getCalculatorTypes = async (req, res) => {
                     as: 'subcategory',
                     attributes: ['id', 'name', 'slug']
                 }]
+            }, {
+                model: Category,
+                as: 'category',
+                attributes: ['id', 'name', 'slug']
             }]
         });
 
@@ -48,6 +52,10 @@ const getAllCalculatorTypes = async (req, res) => {
                     as: 'subcategory',
                     attributes: ['id', 'name', 'slug']
                 }]
+            }, {
+                model: Category,
+                as: 'category',
+                attributes: ['id', 'name', 'slug']
             }]
         });
 
@@ -106,12 +114,13 @@ const getCalculatorTypeById = async (req, res) => {
 // Create calculator type
 const createCalculatorType = async (req, res) => {
     try {
-        const { name, slug, description, has_item_type, has_package_type, fabric_multiplier, is_active, display_order } = req.body;
+        const { name, slug, description, has_item_type, has_package_type, fabric_multiplier, is_active, display_order, category_id } = req.body;
 
         const type = await CalculatorType.create({
             name,
             slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
             description,
+            category_id: category_id || null,
             has_item_type: has_item_type !== undefined ? has_item_type : true,
             has_package_type: has_package_type !== undefined ? has_package_type : true,
             fabric_multiplier: fabric_multiplier || 2.5,
@@ -142,7 +151,13 @@ const updateCalculatorType = async (req, res) => {
         });
 
         if (updated) {
-            const updatedType = await CalculatorType.findByPk(id);
+            const updatedType = await CalculatorType.findByPk(id, {
+                include: [{
+                    model: Category,
+                    as: 'category',
+                    attributes: ['id', 'name', 'slug']
+                }]
+            });
             res.json({
                 success: true,
                 data: updatedType

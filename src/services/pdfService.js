@@ -75,48 +75,164 @@ const generateDocumentPDF = (document) => {
             }
 
             // ============ TABLE ============
-            y = 140;
-            doc.moveTo(40, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
-            y += 5;
-            doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                .text('DESKRIPSI', 40, y)
-                .text('QTY', 390, y)
-                .text('HARGA', 420, y)
-                .text('JUMLAH', 500, y, { width: 55, align: 'right' });
-            y += 12;
-            doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
-            y += 6;
+            y = 170;
 
-            if (docData.windows) {
-                docData.windows.forEach(window => {
-                    doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
-                        .text(`${window.title || ''} - ${window.size || ''}`, 40, y);
-                    if (window.fabricType) {
-                        doc.fontSize(6).font('Helvetica').fillColor(gray).text(window.fabricType, 40, y + 10);
-                    }
-                    y += 18;
+            const isBlindType = docData.calculatorTypeSlug && docData.calculatorTypeSlug.includes('blind');
 
-                    if (window.items) {
-                        window.items.forEach(item => {
-                            const itemTotal = item.totalPrice || (parseFloat(item.price) || 0) * (item.quantity || 1);
+            if (isBlindType && docData.raw_items) {
+                // ==================== BLIND GROUPING VIEW ====================
 
-                            let itemName = item.name || '-';
-                            if (item.discount && item.discount > 0) {
-                                itemName += ` (Disc ${item.discount}%)`;
-                            }
-
-                            doc.fontSize(7).font('Helvetica').fillColor(dark)
-                                .text(itemName, 45, y, { width: 330 })
-                                .text((item.quantity || 1).toString(), 395, y)
-                                .text(formatCurrency(parseFloat(item.price) || 0), 415, y)
-                                .text(formatCurrency(itemTotal), 485, y, { width: 70, align: 'right' });
-                            y += 12;
-                            if (y > 750) { doc.addPage(); y = 40; }
-                        });
-                    }
-                    // Removed per-window discount block
-                    y += 3;
+                // Group items
+                const groupedItems = {};
+                docData.raw_items.forEach(item => {
+                    const groupId = item.groupId || `ungrouped-${item.id}`;
+                    if (!groupedItems[groupId]) groupedItems[groupId] = [];
+                    groupedItems[groupId].push(item);
                 });
+
+                Object.entries(groupedItems).forEach(([groupId, items]) => {
+                    const firstItem = items[0];
+                    const product = firstItem.product || docData.baseFabric;
+
+                    // Group Header
+                    if (y > 700) { doc.addPage(); y = 40; }
+
+                    // Product Header Box
+                    doc.rect(40, y, 515, 25).fill('#f9fafb'); // Light gray bg
+                    doc.rect(40, y, 515, 25).stroke('#e5e7eb');
+
+                    // Product Name & Price
+                    doc.fontSize(9).font('Helvetica-Bold').fillColor(dark)
+                        .text(product?.name || 'Produk Custom', 50, y + 8);
+
+                    const priceText = product?.price ? formatCurrency(product.price) + '/m' : '';
+                    doc.fontSize(9).font('Helvetica-Bold').fillColor(accent)
+                        .text(priceText, 40, y + 8, { width: 505, align: 'right' });
+
+                    y += 35;
+
+                    // Table Header
+                    doc.fontSize(7).font('Helvetica-Bold').fillColor(gray)
+                        .text('LABEL', 45, y)
+                        .text('UKURAN', 200, y, { width: 80, align: 'center' })
+                        .text('VOL (m²)', 280, y, { width: 40, align: 'center' })
+                        .text('HARGA', 330, y, { width: 60, align: 'right' })
+                        .text('DISC', 400, y, { width: 30, align: 'center' })
+                        .text('QTY', 440, y, { width: 20, align: 'center' })
+                        .text('TOTAL', 470, y, { width: 75, align: 'right' });
+
+                    y += 10;
+                    doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#e5e7eb');
+                    y += 8;
+
+                    let groupTotal = 0;
+
+                    // Items
+                    items.forEach(item => {
+                        // Recalculate for PDF consistency or use stored values if available
+                        // Ideally we use what's in raw_items, assuming it acts as source of truth
+                        // But AdminDocumentCreate saves raw_items calculator state.
+
+                        // NOTE: raw_items from AdminDocumentCreate has 'product', 'width', 'height', 'fabricDiscount'
+                        // We need to calculate total if not stored directly as 'totalPrice' in raw_items (it isn't, it's computed in create page)
+                        // BUT, we mapped 'windows' in create page with calculated values.
+                        // OPTION: Use 'windows' for simple listing if we can map back? 
+                        // The 'windows' array has flatness for Blind type (1 window = 1 item).
+                        // Let's use 'raw_items' but we need the Price Calculation Logic here or redundant storage.
+                        // WAIT: 'windows' array in `AdminDocumentCreate` lines 563+ maps 1:1 for blinds?
+                        // Yes: "const windows = items.map(...)".
+                        // So 'windows' contains the computed prices! 
+                        // We should match raw_items to windows by ID to get the computed prices.
+
+                        const windowItem = docData.windows.find(w => w.id === item.id);
+                        // windowItem.items[0] is the fabric item with the price.
+                        // windowItem.subtotal is the total.
+
+                        const prices = windowItem ? {
+                            total: windowItem.subtotal,
+                            meters: parseFloat(windowItem.items[0]?.name.match(/\(([\d.]+)m\)/)?.[1] || '0'), // Extract meters from name hack or recompute
+                            unitPrice: windowItem.items[0]?.price || 0
+                        } : { total: 0, meters: 0, unitPrice: 0 };
+
+                        // Re-calculation fallback if window find fails (robustness)
+                        if (!windowItem) {
+                            const widthM = item.width / 100;
+                            const heightM = item.height / 100;
+                            const fabricMeters = widthM * (docData.calculatorTypeFromDB?.fabric_multiplier || 1) * heightM; // Warning: multiplier might be missing
+                            // Safer to rely on stored windows data which is what is displayed in "Items Table" of legacy PDF.
+                        }
+
+                        groupTotal += prices.total;
+
+                        if (y > 750) { doc.addPage(); y = 40; }
+
+                        doc.fontSize(8).font('Helvetica').fillColor(dark)
+                            .text(item.name || '-', 45, y, { width: 150 })
+                            .text(`${item.width} x ${item.height}`, 200, y, { width: 80, align: 'center' })
+                            .text((prices.total / (prices.unitPrice * (1 - (item.fabricDiscount || 0) / 100)) / item.quantity).toFixed(2), 280, y, { width: 40, align: 'center' }) // Approx Vol
+                            .text(formatCurrency(prices.unitPrice), 330, y, { width: 60, align: 'right' })
+                            .text(item.fabricDiscount ? `${item.fabricDiscount}%` : '-', 400, y, { width: 30, align: 'center' })
+                            .text((item.quantity).toString(), 440, y, { width: 20, align: 'center' })
+                            .text(formatCurrency(prices.total), 470, y, { width: 75, align: 'right' });
+
+                        y += 18;
+                    });
+
+                    // Group Subtotal Footer
+                    doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db');
+                    y += 8;
+                    doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
+                        .text('Subtotal Grup', 350, y, { width: 100, align: 'right' });
+                    doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
+                        .text(formatCurrency(groupTotal), 470, y, { width: 75, align: 'right' });
+
+                    y += 25;
+                });
+
+            } else {
+                // ==================== LEGACY VIEW (Curtains / Standard) ====================
+                doc.moveTo(40, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
+                y += 5;
+                doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
+                    .text('DESKRIPSI', 40, y)
+                    .text('QTY', 390, y)
+                    .text('HARGA', 420, y)
+                    .text('JUMLAH', 500, y, { width: 55, align: 'right' });
+                y += 12;
+                doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
+                y += 6;
+
+                if (docData.windows) {
+                    docData.windows.forEach(window => {
+                        doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
+                            .text(`${window.title || ''} - ${window.size || ''}`, 40, y);
+                        if (window.fabricType) {
+                            doc.fontSize(6).font('Helvetica').fillColor(gray).text(window.fabricType, 40, y + 10);
+                        }
+                        y += 18;
+
+                        if (window.items) {
+                            window.items.forEach(item => {
+                                const itemTotal = item.totalPrice || (parseFloat(item.price) || 0) * (item.quantity || 1);
+
+                                let itemName = item.name || '-';
+                                if (item.discount && item.discount > 0) {
+                                    itemName += ` (Disc ${item.discount}%)`;
+                                }
+
+                                doc.fontSize(7).font('Helvetica').fillColor(dark)
+                                    .text(itemName, 45, y, { width: 330 })
+                                    .text((item.quantity || 1).toString(), 395, y)
+                                    .text(formatCurrency(parseFloat(item.price) || 0), 415, y)
+                                    .text(formatCurrency(itemTotal), 485, y, { width: 70, align: 'right' });
+                                y += 12;
+                                if (y > 750) { doc.addPage(); y = 40; }
+                            });
+                        }
+                        // Removed per-window discount block
+                        y += 3;
+                    });
+                }
             }
 
             // ============ TOTALS ============
