@@ -193,17 +193,20 @@ const generateDocumentPDF = (document) => {
                 // ==================== LEGACY VIEW (Curtains / Standard) ====================
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
                 y += 5;
+                // Updated column headers with Disc column
                 doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
                     .text('DESKRIPSI', 40, y)
-                    .text('QTY', 390, y)
-                    .text('HARGA', 420, y)
-                    .text('JUMLAH', 500, y, { width: 55, align: 'right' });
+                    .text('HARGA', 310, y, { width: 60, align: 'right' })
+                    .text('DISC', 375, y, { width: 35, align: 'center' })
+                    .text('QTY', 415, y, { width: 30, align: 'center' })
+                    .text('TOTAL', 450, y, { width: 105, align: 'right' });
                 y += 12;
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
                 y += 6;
 
                 if (docData.windows) {
                     docData.windows.forEach(window => {
+                        // Window Header
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
                             .text(`${window.title || ''} - ${window.size || ''}`, 40, y);
                         if (window.fabricType) {
@@ -211,25 +214,31 @@ const generateDocumentPDF = (document) => {
                         }
                         y += 18;
 
+                        // Window Items (Fabric + Components)
                         if (window.items) {
                             window.items.forEach(item => {
                                 const itemTotal = item.totalPrice || (parseFloat(item.price) || 0) * (item.quantity || 1);
-
-                                let itemName = item.name || '-';
-                                if (item.discount && item.discount > 0) {
-                                    itemName += ` (Disc ${item.discount}%)`;
-                                }
+                                const itemDiscount = item.discount || 0;
 
                                 doc.fontSize(7).font('Helvetica').fillColor(dark)
-                                    .text(itemName, 45, y, { width: 330 })
-                                    .text((item.quantity || 1).toString(), 395, y)
-                                    .text(formatCurrency(parseFloat(item.price) || 0), 415, y)
-                                    .text(formatCurrency(itemTotal), 485, y, { width: 70, align: 'right' });
+                                    .text(item.name || '-', 45, y, { width: 260 })
+                                    .text(formatCurrency(parseFloat(item.price) || 0), 310, y, { width: 60, align: 'right' })
+                                    .text(itemDiscount > 0 ? `${itemDiscount}%` : '-', 375, y, { width: 35, align: 'center' })
+                                    .text((item.quantity || 1).toString(), 415, y, { width: 30, align: 'center' })
+                                    .text(formatCurrency(itemTotal), 450, y, { width: 105, align: 'right' });
                                 y += 12;
                                 if (y > 750) { doc.addPage(); y = 40; }
                             });
                         }
-                        // Removed per-window discount block
+
+                        // Window Subtotal
+                        if (window.subtotal) {
+                            doc.fontSize(7).font('Helvetica-Bold').fillColor(gray)
+                                .text('Subtotal', 380, y, { width: 60, align: 'right' });
+                            doc.fontSize(7).font('Helvetica-Bold').fillColor(accent)
+                                .text(formatCurrency(window.subtotal), 450, y, { width: 105, align: 'right' });
+                            y += 15;
+                        }
                         y += 3;
                     });
                 }
