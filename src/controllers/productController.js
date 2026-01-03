@@ -1,5 +1,6 @@
 const { Product, Category, SubCategory, ProductPackage, ProductVariant, Sequelize } = require('../models');
 const { Op } = Sequelize;
+const { deleteImages, cleanupRemovedImages } = require('../utils/imageCleanup');
 
 const getProducts = async (req, res) => {
     try {
@@ -54,7 +55,7 @@ const getProducts = async (req, res) => {
             include: [
                 { model: Category, attributes: ['name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
-                { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net'] }
+                { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net', 'satuan'] }
             ]
         };
 
@@ -71,14 +72,33 @@ const getProducts = async (req, res) => {
             const variants = productData.variants || [];
 
             if (variants.length > 0) {
-                // Use price_gross for pricing (primary), fallback to price_net
-                const prices = variants
-                    .map(v => Number(v.price_gross) || Number(v.price_net) || 0)
-                    .filter(price => price > 0);
+                // Filter variants that have at least a net price
+                const validVariants = variants.filter(v => Number(v.price_net) > 0);
 
-                if (prices.length > 0) {
-                    productData.minPrice = Math.min(...prices);
-                    productData.maxPrice = Math.max(...prices);
+                if (validVariants.length > 0) {
+                    // Get NET prices for determining the cheapest variant
+                    const netPrices = validVariants.map(v => Number(v.price_net));
+                    const minNetPrice = Math.min(...netPrices);
+                    const maxNetPrice = Math.max(...netPrices);
+
+                    // minPrice is the NET price (the actual selling price)
+                    productData.minPrice = minNetPrice;
+                    productData.maxPrice = maxNetPrice;
+
+                    // Find the variant with the minimum NET price
+                    const minVariant = validVariants.find(v => Number(v.price_net) === minNetPrice);
+
+                    if (minVariant) {
+                        // Set satuan from this variant
+                        if (minVariant.satuan) {
+                            productData.price_unit = minVariant.satuan;
+                        }
+
+                        // minPriceGross is the GROSS price of this variant (for strikethrough display)
+                        if (minVariant.price_gross && Number(minVariant.price_gross) > 0) {
+                            productData.minPriceGross = Number(minVariant.price_gross);
+                        }
+                    }
                 }
             }
 
@@ -165,6 +185,16 @@ const updateProduct = async (req, res) => {
             });
         }
 
+        // Cleanup removed images if images are being updated
+        if (req.body.images !== undefined) {
+            const oldImages = product.images;
+            const newImages = req.body.images;
+            const deletedCount = cleanupRemovedImages(oldImages, newImages);
+            if (deletedCount > 0) {
+                console.log(`🗑️ Cleaned up ${deletedCount} old image(s) for product ${product.id}`);
+            }
+        }
+
         await product.update(req.body);
 
         res.status(200).json({
@@ -186,6 +216,15 @@ const deleteProduct = async (req, res) => {
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
+
+        // Delete associated images from server
+        if (product.images) {
+            const deletedCount = deleteImages(product.images);
+            if (deletedCount > 0) {
+                console.log(`🗑️ Deleted ${deletedCount} image(s) for product ${product.id}`);
+            }
+        }
+
         await product.destroy();
         res.json({ success: true, message: 'Product deleted' });
     } catch (error) {

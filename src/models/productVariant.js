@@ -37,6 +37,12 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             comment: 'Harga Net'
         },
+        satuan: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue: 'm',
+            comment: 'Satuan unit (e.g. meter, pcs, set)'
+        },
         is_active: {
             type: DataTypes.BOOLEAN,
             defaultValue: true
