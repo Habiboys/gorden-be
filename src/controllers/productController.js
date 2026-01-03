@@ -1,4 +1,4 @@
-const { Product, Category, SubCategory, ProductPackage, Sequelize } = require('../models');
+const { Product, Category, SubCategory, ProductPackage, ProductVariant, Sequelize } = require('../models');
 const { Op } = Sequelize;
 
 const getProducts = async (req, res) => {
@@ -39,10 +39,13 @@ const getProducts = async (req, res) => {
             where.is_best_seller = true;
         }
 
-        if (sort === 'price_asc') {
-            order = [['price', 'ASC']];
-        } else if (sort === 'price_desc') {
-            order = [['price', 'DESC']];
+        if (sort === 'lowest') {
+            // Price sorting now handled by variant minPrice, but for initial query we can sort by name or created_at
+            order = [['created_at', 'ASC']];
+        } else if (sort === 'highest') {
+            order = [['created_at', 'DESC']];
+        } else if (sort === 'latest') {
+            order = [['created_at', 'DESC']]; // 'latest' typically means newest first
         }
 
         const queryOptions = {
@@ -50,7 +53,8 @@ const getProducts = async (req, res) => {
             order,
             include: [
                 { model: Category, attributes: ['name', 'slug'] },
-                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] }
+                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
+                { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net'] }
             ]
         };
 
@@ -61,7 +65,27 @@ const getProducts = async (req, res) => {
 
         const products = await Product.findAll(queryOptions);
 
-        res.json({ success: true, data: products });
+        // Map products to include minPrice and maxPrice from variants
+        const productsWithPrices = products.map(p => {
+            const productData = p.toJSON();
+            const variants = productData.variants || [];
+
+            if (variants.length > 0) {
+                // Use price_gross for pricing (primary), fallback to price_net
+                const prices = variants
+                    .map(v => Number(v.price_gross) || Number(v.price_net) || 0)
+                    .filter(price => price > 0);
+
+                if (prices.length > 0) {
+                    productData.minPrice = Math.min(...prices);
+                    productData.maxPrice = Math.max(...prices);
+                }
+            }
+
+            return productData;
+        });
+
+        res.json({ success: true, data: productsWithPrices });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -73,7 +97,7 @@ const getProductDetail = async (req, res) => {
         const { id } = req.params;
         const product = await Product.findByPk(id, {
             include: [
-                { model: Category, attributes: ['name', 'slug'] },
+                { model: Category, attributes: ['id', 'name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: ProductPackage }
             ]
@@ -106,7 +130,7 @@ const createProduct = async (req, res) => {
             category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
             stock, discount_percent, min_width, max_width, min_length, max_length, price_unit, images, features, how_to_order,
-            is_featured, is_new_arrival, is_best_seller,
+            is_featured, is_new_arrival, is_best_seller, is_warranty, is_custom, variant_options,
             meta_title, meta_description, meta_keywords, status
         } = req.body;
 
@@ -114,7 +138,7 @@ const createProduct = async (req, res) => {
             category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
             stock, discount_percent, min_width, max_width, min_length, max_length, price_unit, images, features, how_to_order,
-            is_featured, is_new_arrival, is_best_seller,
+            is_featured, is_new_arrival, is_best_seller, is_warranty, is_custom, variant_options,
             meta_title, meta_description, meta_keywords, status
         });
 
@@ -205,6 +229,70 @@ const deleteCategory = async (req, res) => {
     }
 };
 
+const duplicateProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sourceProduct = await Product.findByPk(id, {
+            include: [{ model: ProductVariant, as: 'variants' }]
+        });
+
+        if (!sourceProduct) {
+            return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+
+        // Clone Product
+        const productData = sourceProduct.toJSON();
+        delete productData.id;
+        delete productData.created_at;
+        delete productData.updated_at;
+        productData.name = `${productData.name} copy`;
+
+        // Handle Slug
+        if (productData.slug) {
+            productData.slug = `${productData.slug}-copy-${Date.now()}`;
+        }
+
+        // Handle SKU
+        if (productData.sku) {
+            productData.sku = `${productData.sku}-copy-${Math.floor(Math.random() * 1000)}`;
+        }
+
+        const newProduct = await Product.create(productData);
+
+        // Clone Variants
+        const variants = sourceProduct.variants || [];
+
+        if (variants.length > 0) {
+            const variantsData = variants.map(v => {
+                const vData = v.toJSON ? v.toJSON() : v;
+                delete vData.id;
+                delete vData.product_id;
+                delete vData.created_at;
+                delete vData.updated_at;
+
+                // Ensure attributes is an object, not a string
+                // This fixes the "Double Stringify" issue in duplication
+                if (vData.attributes && typeof vData.attributes === 'string') {
+                    try {
+                        vData.attributes = JSON.parse(vData.attributes);
+                    } catch (e) {
+                        console.warn('Failed to parse attributes for variant during duplication', vData.attributes);
+                        vData.attributes = {};
+                    }
+                }
+
+                return { ...vData, product_id: newProduct.id };
+            });
+            await ProductVariant.bulkCreate(variantsData);
+        }
+
+        res.json({ success: true, data: newProduct });
+    } catch (error) {
+        console.error('Error duplicating product:', error);
+        res.status(500).json({ success: false, message: 'Gagal menduplikasi produk', error: error.message });
+    }
+};
+
 module.exports = {
     getProducts,
     getProductDetail,
@@ -212,6 +300,7 @@ module.exports = {
     createProduct,
     updateProduct,
     deleteProduct,
+    duplicateProduct,
     createCategory,
     updateCategory,
     deleteCategory

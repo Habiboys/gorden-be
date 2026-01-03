@@ -7,7 +7,7 @@ exports.getByProduct = async (req, res) => {
 
         const variants = await ProductVariant.findAll({
             where: { product_id: productId, is_active: true },
-            order: [['sibak', 'ASC'], ['width', 'ASC']]
+            order: [['created_at', 'ASC']]
         });
 
         res.json({
@@ -32,7 +32,7 @@ exports.getMatchingVariants = async (req, res) => {
 
         const variants = await ProductVariant.findAll({
             where: { product_id: productId, is_active: true },
-            order: [['sibak', 'ASC'], ['price', 'ASC']]
+            order: [['created_at', 'ASC']]
         });
 
         // Filter variants that match the input dimensions
@@ -69,7 +69,9 @@ exports.getMatchingVariants = async (req, res) => {
 exports.create = async (req, res) => {
     try {
         const { productId } = req.params;
-        const { width, wave, height, sibak, price, recommended_min_width, recommended_max_width, recommended_height } = req.body;
+        const {
+            attributes, price_gross, price_net, is_active
+        } = req.body;
 
         // Verify product exists
         const product = await Product.findByPk(productId);
@@ -82,14 +84,10 @@ exports.create = async (req, res) => {
 
         const variant = await ProductVariant.create({
             product_id: productId,
-            width,
-            wave,
-            height,
-            sibak: sibak || 1,
-            price,
-            recommended_min_width,
-            recommended_max_width,
-            recommended_height
+            attributes,
+            price_gross,
+            price_net,
+            is_active: is_active !== undefined ? is_active : true
         });
 
         res.status(201).json({
@@ -107,11 +105,72 @@ exports.create = async (req, res) => {
     }
 };
 
+// Bulk Create/Sync variants (Delete existing, then create new)
+exports.bulkCreate = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { variants } = req.body; // Expecting array of { attributes, price_gross, price_net, is_active }
+
+        if (!Array.isArray(variants)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Variants array is required'
+            });
+        }
+
+        // Verify product exists
+        const product = await Product.findByPk(productId);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                error: 'Product not found'
+            });
+        }
+
+        // Delete all existing variants for this product (sync behavior)
+        await ProductVariant.destroy({ where: { product_id: productId } });
+
+        // If no new variants to create, just return empty
+        if (variants.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                message: 'All variants cleared'
+            });
+        }
+
+        const variantsData = variants.map(v => ({
+            product_id: productId,
+            attributes: v.attributes || {},
+            price_gross: v.price_gross || 0,
+            price_net: v.price_net || 0,
+            is_active: v.is_active !== undefined ? v.is_active : true
+        }));
+
+        const createdVariants = await ProductVariant.bulkCreate(variantsData);
+
+        res.status(201).json({
+            success: true,
+            data: createdVariants,
+            message: `${createdVariants.length} variants synced successfully`
+        });
+    } catch (error) {
+        console.error('Error bulk syncing variants:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to bulk create variants',
+            message: error.message
+        });
+    }
+};
+
 // Update a variant
 exports.update = async (req, res) => {
     try {
         const { id } = req.params;
-        const { width, wave, height, sibak, price, recommended_min_width, recommended_max_width, recommended_height, is_active } = req.body;
+        const {
+            attributes, price_gross, price_net, is_active
+        } = req.body;
 
         const variant = await ProductVariant.findByPk(id);
         if (!variant) {
@@ -122,14 +181,9 @@ exports.update = async (req, res) => {
         }
 
         await variant.update({
-            width: width !== undefined ? width : variant.width,
-            wave: wave !== undefined ? wave : variant.wave,
-            height: height !== undefined ? height : variant.height,
-            sibak: sibak !== undefined ? sibak : variant.sibak,
-            price: price !== undefined ? price : variant.price,
-            recommended_min_width: recommended_min_width !== undefined ? recommended_min_width : variant.recommended_min_width,
-            recommended_max_width: recommended_max_width !== undefined ? recommended_max_width : variant.recommended_max_width,
-            recommended_height: recommended_height !== undefined ? recommended_height : variant.recommended_height,
+            attributes: attributes !== undefined ? attributes : variant.attributes,
+            price_gross: price_gross !== undefined ? price_gross : variant.price_gross,
+            price_net: price_net !== undefined ? price_net : variant.price_net,
             is_active: is_active !== undefined ? is_active : variant.is_active
         });
 

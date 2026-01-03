@@ -22,46 +22,20 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'id'
             }
         },
-        width: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            comment: 'Lebar (cm)'
-        },
-        wave: {
-            type: DataTypes.INTEGER,
+        attributes: {
+            type: DataTypes.JSON,
             allowNull: true,
-            comment: 'Gelombang'
+            comment: 'Flexible attributes JSON (e.g. {"Lebar": "50", "Tinggi": "200"})'
         },
-        height: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            comment: 'Tinggi (cm)'
-        },
-        sibak: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 1,
-            comment: '1 = single, 2 = pair, etc'
-        },
-        price: {
+        price_gross: {
             type: DataTypes.DECIMAL(15, 2),
-            allowNull: false,
-            comment: 'Harga varian'
-        },
-        recommended_min_width: {
-            type: DataTypes.INTEGER,
             allowNull: true,
-            comment: 'Min lebar cocok (cm)'
+            comment: 'Harga Gross'
         },
-        recommended_max_width: {
-            type: DataTypes.INTEGER,
+        price_net: {
+            type: DataTypes.DECIMAL(15, 2),
             allowNull: true,
-            comment: 'Max lebar cocok (cm)'
-        },
-        recommended_height: {
-            type: DataTypes.INTEGER,
-            allowNull: true,
-            comment: 'Tinggi cocok (cm)'
+            comment: 'Harga Net'
         },
         is_active: {
             type: DataTypes.BOOLEAN,
@@ -70,7 +44,7 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         sequelize,
         modelName: 'ProductVariant',
-        tableName: 'ProductVariants',
+        tableName: 'product_variants',
         underscored: true,
     });
 

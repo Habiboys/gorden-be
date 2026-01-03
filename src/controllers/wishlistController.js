@@ -10,7 +10,7 @@ const getWishlist = async (req, res) => {
             include: [{
                 model: Product,
                 as: 'product',
-                attributes: ['id', 'name', 'price', 'images', 'category_id']
+                attributes: ['id', 'name', 'images', 'category_id'] // price removed - using variants now
             }],
             order: [['created_at', 'DESC']]
         });

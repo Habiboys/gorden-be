@@ -25,13 +25,8 @@ module.exports = (sequelize, DataTypes) => {
         subtitle: DataTypes.STRING,
         description: DataTypes.TEXT,
         information: DataTypes.TEXT,
-        price: DataTypes.DECIMAL,
-        original_price: DataTypes.DECIMAL,
-        price_self_measure: DataTypes.DECIMAL,
-        price_self_measure_install: DataTypes.DECIMAL,
-        price_measure_install: DataTypes.DECIMAL,
+        // Price fields removed - now handled by ProductVariant.price_net/price_gross
         stock: DataTypes.INTEGER,
-        discount_percent: DataTypes.INTEGER,
         min_width: DataTypes.DECIMAL,
         max_width: DataTypes.DECIMAL,
         min_length: DataTypes.DECIMAL,
@@ -46,7 +41,14 @@ module.exports = (sequelize, DataTypes) => {
         meta_title: DataTypes.STRING,
         meta_description: DataTypes.TEXT,
         meta_keywords: DataTypes.STRING,
+        variant_options: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            comment: 'Definitions of available options (e.g. [{"name": "Lebar", "values": ["50", "100"]}])'
+        },
         sibak: DataTypes.INTEGER, // Added Sibak field
+        is_warranty: { type: DataTypes.BOOLEAN, defaultValue: false }, // Garansi 1 Tahun
+        is_custom: { type: DataTypes.BOOLEAN, defaultValue: false }, // Gorden Custom
         status: {
             type: DataTypes.STRING, // Changed from ENUM to STRING for flexibility as per migration
             defaultValue: 'ACTIVE'

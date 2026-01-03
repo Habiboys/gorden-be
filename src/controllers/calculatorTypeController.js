@@ -1,4 +1,4 @@
-const { CalculatorType, CalculatorTypeComponent, SubCategory, Product, Category } = require('../models');
+const { CalculatorType, CalculatorTypeComponent, SubCategory, Product, Category, ProductVariant } = require('../models');
 
 // ==================== CALCULATOR TYPES ====================
 
@@ -323,17 +323,45 @@ const getProductsBySubcategory = async (req, res) => {
                 subcategory_id: subcategoryId,
                 status: 'ACTIVE'
             },
-            attributes: ['id', 'name', 'price', 'price_self_measure', 'images', 'sku']
+            attributes: ['id', 'name', 'images', 'sku'],
+            include: [{
+                model: ProductVariant,
+                as: 'variants',
+                attributes: ['price_net', 'price_gross']
+            }]
         });
 
         // Format products for calculator
-        const formattedProducts = products.map(p => ({
-            id: p.id,
-            name: p.name,
-            price: parseFloat(p.price_self_measure) || parseFloat(p.price) || 0,
-            image: p.images && p.images[0] ? p.images[0] : null,
-            sku: p.sku
-        }));
+        const formattedProducts = products.map(p => {
+            // Calculate price from variants if available (min price)
+            let price = 0;
+            if (p.variants && p.variants.length > 0) {
+                const prices = p.variants.map(v => parseFloat(v.price_net) || parseFloat(v.price_gross) || 0).filter(p => p > 0);
+                if (prices.length > 0) price = Math.min(...prices);
+            }
+
+            // Safely extracting first image
+            let firstImage = null;
+            let imgList = p.images;
+            if (typeof imgList === 'string') {
+                try {
+                    imgList = JSON.parse(imgList);
+                } catch (e) {
+                    imgList = [];
+                }
+            }
+            if (Array.isArray(imgList) && imgList.length > 0) {
+                firstImage = imgList[0];
+            }
+
+            return {
+                id: p.id,
+                name: p.name,
+                price: price,
+                image: firstImage,
+                sku: p.sku
+            };
+        });
 
         res.json({
             success: true,
