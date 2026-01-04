@@ -13,7 +13,8 @@ module.exports = (sequelize, DataTypes) => {
         name: DataTypes.STRING,
         slug: DataTypes.STRING,
         description: DataTypes.TEXT,
-        icon_url: DataTypes.STRING
+        icon_url: DataTypes.STRING,
+        image: DataTypes.STRING
     }, {
         sequelize,
         modelName: 'Category',

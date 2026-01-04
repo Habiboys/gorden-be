@@ -45,37 +45,37 @@ const generateDocumentPDF = (document) => {
             const isInvoice = document.type === 'INVOICE';
 
             // ============ HEADER ============
-            doc.fontSize(18).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 40, 35);
-            doc.fontSize(7).font('Helvetica').fillColor(gray).text('Pusat Gorden Berkualitas', 40, 55);
+            doc.fontSize(14).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 40, 35);
+            doc.fontSize(6).font('Helvetica').fillColor(gray).text('Pusat Gorden Berkualitas', 40, 52);
 
-            doc.fontSize(16).font('Helvetica-Bold').fillColor(accent)
+            doc.fontSize(12).font('Helvetica-Bold').fillColor(accent)
                 .text(isInvoice ? 'INVOICE' : 'PENAWARAN', 350, 35, { width: 205, align: 'right' });
-            doc.fontSize(8).font('Helvetica').fillColor(gray)
-                .text(document.document_number, 350, 55, { width: 205, align: 'right' });
+            doc.fontSize(7).font('Helvetica').fillColor(gray)
+                .text(document.document_number, 350, 50, { width: 205, align: 'right' });
 
-            doc.moveTo(40, 75).lineTo(555, 75).lineWidth(0.5).stroke('#e5e7eb');
+            doc.moveTo(40, 68).lineTo(555, 68).lineWidth(0.5).stroke('#e5e7eb');
 
             // ============ INFO ============
-            let y = 85;
-            doc.fontSize(7).font('Helvetica').fillColor(gray).text('KEPADA', 40, y);
-            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(document.customer_name || '-', 40, y + 10);
-            doc.fontSize(7).font('Helvetica').fillColor(gray)
-                .text(document.customer_phone || '', 40, y + 22)
-                .text(document.customer_email || '', 40, y + 32)
-                .text(document.address || '', 40, y + 42, { width: 180 });
+            let y = 78;
+            doc.fontSize(6).font('Helvetica').fillColor(gray).text('KEPADA', 40, y);
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text(document.customer_name || '-', 40, y + 9);
+            doc.fontSize(6).font('Helvetica').fillColor(gray)
+                .text(document.customer_phone || '', 40, y + 19)
+                .text(document.customer_email || '', 40, y + 28)
+                .text(document.address || '', 40, y + 37, { width: 180 });
 
-            doc.fontSize(7).font('Helvetica').fillColor(gray).text('TANGGAL', 400, y, { width: 155, align: 'right' });
-            doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                .text(formatDate(document.created_at || document.createdAt), 400, y + 10, { width: 155, align: 'right' });
+            doc.fontSize(6).font('Helvetica').fillColor(gray).text('TANGGAL', 400, y, { width: 155, align: 'right' });
+            doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
+                .text(formatDate(document.created_at || document.createdAt), 400, y + 9, { width: 155, align: 'right' });
 
             if (!isInvoice && document.valid_until) {
-                doc.fontSize(7).font('Helvetica').fillColor(gray).text('BERLAKU SAMPAI', 400, y + 25, { width: 155, align: 'right' });
-                doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                    .text(formatDate(document.valid_until), 400, y + 35, { width: 155, align: 'right' });
+                doc.fontSize(6).font('Helvetica').fillColor(gray).text('BERLAKU SAMPAI', 400, y + 22, { width: 155, align: 'right' });
+                doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
+                    .text(formatDate(document.valid_until), 400, y + 31, { width: 155, align: 'right' });
             }
 
             // ============ TABLE ============
-            y = 170;
+            y = 150;
 
             const isBlindType = docData.calculatorTypeSlug && docData.calculatorTypeSlug.includes('blind');
 
@@ -245,12 +245,12 @@ const generateDocumentPDF = (document) => {
                                 // so we just check if string has "undefined"
                                 let displayName = item.name || '-';
                                 if (displayName.includes('undefined')) {
-                                     // Attempt to clean it up. 
-                                     // Pattern often: "Smokering 3 (undefinedxundefinedcm)"
-                                     // We can just remove the undefined part or replace with generic
-                                     displayName = displayName.replace(/\(undefinedxundefinedcm\)/g, '').trim();
-                                     // Also "Varian: undefined"
-                                     displayName = displayName.replace(/undefined/g, '-');
+                                    // Attempt to clean it up. 
+                                    // Pattern often: "Smokering 3 (undefinedxundefinedcm)"
+                                    // We can just remove the undefined part or replace with generic
+                                    displayName = displayName.replace(/\(undefinedxundefinedcm\)/g, '').trim();
+                                    // Also "Varian: undefined"
+                                    displayName = displayName.replace(/undefined/g, '-');
                                 }
 
                                 doc.fontSize(7).font('Helvetica').fillColor(dark)
@@ -294,8 +294,8 @@ const generateDocumentPDF = (document) => {
 
             doc.moveTo(380, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
             y += 8;
-            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text('TOTAL', 380, y);
-            doc.fontSize(10).fillColor(accent).text(formatCurrency(total), 460, y - 1, { width: 95, align: 'right' });
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', 380, y);
+            doc.fontSize(9).fillColor(accent).text(formatCurrency(total), 460, y - 1, { width: 95, align: 'right' });
 
             // ============ PAYMENT ============
             y += 30;

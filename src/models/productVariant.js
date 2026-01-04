@@ -43,6 +43,12 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: 'm',
             comment: 'Satuan unit (e.g. meter, pcs, set)'
         },
+        quantity_multiplier: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            defaultValue: 1,
+            comment: 'Multiplier for quantity calculation (e.g. 2 for "2 Sibak")'
+        },
         is_active: {
             type: DataTypes.BOOLEAN,
             defaultValue: true

@@ -39,6 +39,11 @@ module.exports = (sequelize, DataTypes) => {
         display_order: {
             type: DataTypes.INTEGER,
             defaultValue: 0
+        },
+        multiply_with_variant: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            comment: 'If true, component quantity is multiplied by selected variant multiplier'
         }
     }, {
         sequelize,

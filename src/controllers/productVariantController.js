@@ -70,7 +70,7 @@ exports.create = async (req, res) => {
     try {
         const { productId } = req.params;
         const {
-            attributes, price_gross, price_net, satuan, is_active
+            attributes, price_gross, price_net, satuan, is_active, quantity_multiplier
         } = req.body;
 
         // Verify product exists
@@ -88,6 +88,7 @@ exports.create = async (req, res) => {
             price_gross,
             price_net,
             satuan: satuan || 'meter',
+            quantity_multiplier: quantity_multiplier || 1,
             is_active: is_active !== undefined ? is_active : true
         });
 
@@ -146,6 +147,7 @@ exports.bulkCreate = async (req, res) => {
             price_gross: v.price_gross || 0,
             price_net: v.price_net || 0,
             satuan: v.satuan || 'meter',
+            quantity_multiplier: v.quantity_multiplier || 1,
             is_active: v.is_active !== undefined ? v.is_active : true
         }));
 
@@ -171,7 +173,7 @@ exports.update = async (req, res) => {
     try {
         const { id } = req.params;
         const {
-            attributes, price_gross, price_net, satuan, is_active
+            attributes, price_gross, price_net, satuan, is_active, quantity_multiplier
         } = req.body;
 
         const variant = await ProductVariant.findByPk(id);
@@ -187,6 +189,7 @@ exports.update = async (req, res) => {
             price_gross: price_gross !== undefined ? price_gross : variant.price_gross,
             price_net: price_net !== undefined ? price_net : variant.price_net,
             satuan: satuan !== undefined ? satuan : variant.satuan,
+            quantity_multiplier: quantity_multiplier !== undefined ? quantity_multiplier : variant.quantity_multiplier,
             is_active: is_active !== undefined ? is_active : variant.is_active
         });
 

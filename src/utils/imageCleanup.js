@@ -79,34 +79,43 @@ const deleteImages = (images) => {
  * @returns {number} - Number of deleted images
  */
 const cleanupRemovedImages = (oldImages, newImages) => {
-    // Parse old images
+    // Parse old images - ensure it's always an array
     let oldList = [];
     if (typeof oldImages === 'string') {
         try {
-            oldList = JSON.parse(oldImages);
+            const parsed = JSON.parse(oldImages);
+            oldList = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
         } catch {
             oldList = oldImages ? [oldImages] : [];
         }
     } else if (Array.isArray(oldImages)) {
         oldList = oldImages;
+    } else if (oldImages && typeof oldImages === 'object') {
+        // Handle case where images is an object (edge case)
+        oldList = [];
     }
 
-    // Parse new images
+    // Parse new images - ensure it's always an array
     let newList = [];
     if (typeof newImages === 'string') {
         try {
-            newList = JSON.parse(newImages);
+            const parsed = JSON.parse(newImages);
+            newList = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
         } catch {
             newList = newImages ? [newImages] : [];
         }
     } else if (Array.isArray(newImages)) {
         newList = newImages;
+    } else if (newImages && typeof newImages === 'object') {
+        // Handle case where images is an object (edge case)
+        newList = [];
     }
 
     // Find images that were in old but not in new (removed)
     const removedImages = oldList.filter(oldImg => {
+        if (!oldImg || typeof oldImg !== 'string') return false;
         const oldFilename = path.basename(oldImg);
-        return !newList.some(newImg => path.basename(newImg) === oldFilename);
+        return !newList.some(newImg => newImg && path.basename(newImg) === oldFilename);
     });
 
     // Delete removed images

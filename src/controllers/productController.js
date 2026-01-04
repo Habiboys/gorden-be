@@ -195,6 +195,7 @@ const updateProduct = async (req, res) => {
             }
         }
 
+        console.log('📦 Updating product with data:', JSON.stringify(req.body, null, 2));
         await product.update(req.body);
 
         res.status(200).json({
@@ -202,6 +203,8 @@ const updateProduct = async (req, res) => {
             data: product
         });
     } catch (error) {
+        console.error('❌ Error updating product:', error);
+        console.error('❌ Error stack:', error.stack);
         res.status(500).json({
             success: false,
             message: 'Error updating product',
@@ -234,8 +237,8 @@ const deleteProduct = async (req, res) => {
 
 const createCategory = async (req, res) => {
     try {
-        const { name, slug, description } = req.body;
-        const category = await Category.create({ name, slug, description });
+        const { name, slug, description, image, icon_url } = req.body;
+        const category = await Category.create({ name, slug, description, image, icon_url });
         res.status(201).json({ success: true, data: category });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error creating category', error: error.message });
@@ -248,6 +251,17 @@ const updateCategory = async (req, res) => {
         if (!category) {
             return res.status(404).json({ success: false, message: 'Category not found' });
         }
+
+        // Handle Image Cleanup
+        if (req.body.image !== undefined && category.image && category.image !== req.body.image) {
+            deleteImages(category.image); // Delete old image
+        }
+
+        // Handle Icon Cleanup (if icon_url is treated as file path)
+        if (req.body.icon_url !== undefined && category.icon_url && category.icon_url !== req.body.icon_url) {
+            deleteImages(category.icon_url); // Delete old icon
+        }
+
         await category.update(req.body);
         res.json({ success: true, data: category });
     } catch (error) {
