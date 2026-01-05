@@ -59,6 +59,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
             comment: 'If true, show dynamic Gelombang column in variant picker'
+        },
+        price_follows_item_qty: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            comment: 'If true, component price/qty follows item quantity (jendela count)'
         }
     }, {
         sequelize,
