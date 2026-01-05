@@ -44,6 +44,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
             comment: 'If true, component quantity is multiplied by selected variant multiplier'
+        },
+        variant_filter_rule: {
+            type: DataTypes.STRING,
+            defaultValue: 'none',
+            comment: 'Filter rule for variants: none, gorden-smokering, rel-4-sizes, vitrase-kombinasi'
         }
     }, {
         sequelize,
