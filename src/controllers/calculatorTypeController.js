@@ -212,7 +212,7 @@ const deleteCalculatorType = async (req, res) => {
 // Add component to a calculator type
 const addComponent = async (req, res) => {
     try {
-        const { calculator_type_id, subcategory_id, label, is_required, price_calculation, display_order, multiply_with_variant } = req.body;
+        const { calculator_type_id, subcategory_id, label, is_required, price_calculation, display_order, multiply_with_variant, variant_filter_rule, hide_on_door } = req.body;
 
         const component = await CalculatorTypeComponent.create({
             calculator_type_id,
@@ -221,7 +221,9 @@ const addComponent = async (req, res) => {
             is_required: is_required || false,
             price_calculation: price_calculation || 'per_meter',
             display_order: display_order || 0,
-            multiply_with_variant: multiply_with_variant || false
+            multiply_with_variant: multiply_with_variant || false,
+            variant_filter_rule: variant_filter_rule || 'none',
+            hide_on_door: hide_on_door || false
         });
 
         // Fetch with subcategory details
