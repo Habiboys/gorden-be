@@ -49,6 +49,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             defaultValue: 'none',
             comment: 'Filter rule for variants: none, gorden-smokering, rel-4-sizes, vitrase-kombinasi'
+        },
+        hide_on_door: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            comment: 'If true, component is hidden when item type is Door (Pintu)'
         }
     }, {
         sequelize,
