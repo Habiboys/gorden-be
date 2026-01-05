@@ -54,6 +54,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
             comment: 'If true, component is hidden when item type is Door (Pintu)'
+        },
+        show_gelombang: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            comment: 'If true, show dynamic Gelombang column in variant picker'
         }
     }, {
         sequelize,

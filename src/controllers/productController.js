@@ -99,6 +99,37 @@ const getProducts = async (req, res) => {
                             productData.minPriceGross = Number(minVariant.price_gross);
                         }
                     }
+
+                    // Calculate Dimensions Range (Width/Height)
+                    const tempWidths = [];
+                    const tempHeights = [];
+
+                    validVariants.forEach(v => {
+                        let attrs = v.attributes;
+                        if (typeof attrs === 'string') {
+                            try { attrs = JSON.parse(attrs); } catch (e) { attrs = {}; }
+                        } else if (!attrs) {
+                            attrs = {};
+                        }
+
+                        Object.keys(attrs).forEach(key => {
+                            const k = key.toLowerCase();
+                            const val = parseFloat(attrs[key]);
+                            if (!isNaN(val)) {
+                                if (['lebar', 'width', 'l'].includes(k)) tempWidths.push(val);
+                                if (['tinggi', 'height', 't'].includes(k)) tempHeights.push(val);
+                            }
+                        });
+                    });
+
+                    if (tempWidths.length > 0) {
+                        productData.variantMinWidth = Math.min(...tempWidths);
+                        productData.variantMaxWidth = Math.max(...tempWidths);
+                    }
+                    if (tempHeights.length > 0) {
+                        productData.variantMinHeight = Math.min(...tempHeights);
+                        productData.variantMaxHeight = Math.max(...tempHeights);
+                    }
                 }
             }
 
