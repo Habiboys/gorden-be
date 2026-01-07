@@ -1,7 +1,23 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const productController = require('../controllers/productController');
 const productVariantController = require('../controllers/productVariantController');
+const productImportController = require('../controllers/productImportController');
+
+// Multer config for Excel file upload (memory storage)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            file.mimetype === 'application/vnd.ms-excel') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only Excel files are allowed'), false);
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 router.get('/products', productController.getProducts);
 router.get('/products/:id', productController.getProductDetail);
@@ -21,5 +37,11 @@ router.post('/products/:productId/variants', productVariantController.create);
 router.post('/products/:productId/variants/bulk', productVariantController.bulkCreate);
 router.put('/variants/:id', productVariantController.update);
 router.delete('/variants/:id', productVariantController.delete);
+
+// Product Import from Excel
+router.get('/products/import/template/products', productImportController.downloadProductTemplate);
+router.get('/products/import/template/variants', productImportController.downloadVariantTemplate);
+router.post('/products/import/products', upload.single('file'), productImportController.importProducts);
+router.post('/products/import/variants', upload.single('file'), productImportController.importVariants);
 
 module.exports = router;

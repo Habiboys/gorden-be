@@ -4,12 +4,12 @@ const { deleteImages, cleanupRemovedImages } = require('../utils/imageCleanup');
 
 const getProducts = async (req, res) => {
     try {
-        const { category, search, sort, featured, new_arrival, best_seller, limit, category_id } = req.query;
+        const { category, subcategory, search, sort, featured, new_arrival, best_seller, limit, category_id, subcategory_id, page = 1 } = req.query;
         let where = {};
         let order = [['created_at', 'DESC']];
 
         // Filter by category slug
-        if (category) {
+        if (category && category !== 'all') {
             const cat = await Category.findOne({ where: { slug: category } });
             if (cat) {
                 where.category_id = cat.id;
@@ -17,8 +17,21 @@ const getProducts = async (req, res) => {
         }
 
         // Filter by category_id directly
-        if (category_id) {
+        if (category_id && category_id !== 'all') {
             where.category_id = parseInt(category_id, 10);
+        }
+
+        // Filter by subcategory slug
+        if (subcategory && subcategory !== 'all') {
+            const sub = await SubCategory.findOne({ where: { slug: subcategory } });
+            if (sub) {
+                where.subcategory_id = sub.id;
+            }
+        }
+
+        // Filter by subcategory_id directly
+        if (subcategory_id && subcategory_id !== 'all') {
+            where.subcategory_id = parseInt(subcategory_id, 10);
         }
 
         if (search) {
@@ -41,17 +54,24 @@ const getProducts = async (req, res) => {
         }
 
         if (sort === 'lowest') {
-            // Price sorting now handled by variant minPrice, but for initial query we can sort by name or created_at
             order = [['created_at', 'ASC']];
         } else if (sort === 'highest') {
             order = [['created_at', 'DESC']];
         } else if (sort === 'latest') {
-            order = [['created_at', 'DESC']]; // 'latest' typically means newest first
+            order = [['created_at', 'DESC']];
         }
+
+        // Pagination
+        const limitVal = parseInt(limit, 10) || 12; // Default limit 12 per page
+        const pageVal = parseInt(page, 10) || 1;
+        const offset = (pageVal - 1) * limitVal;
 
         const queryOptions = {
             where,
             order,
+            limit: limitVal,
+            offset: offset,
+            distinct: true, // Important for correct count with includes
             include: [
                 { model: Category, attributes: ['name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
@@ -59,42 +79,28 @@ const getProducts = async (req, res) => {
             ]
         };
 
-        // Add limit if specified
-        if (limit) {
-            queryOptions.limit = parseInt(limit, 10);
-        }
+        const { count, rows: products } = await Product.findAndCountAll(queryOptions);
 
-        const products = await Product.findAll(queryOptions);
-
-        // Map products to include minPrice and maxPrice from variants
+        // Map products logic (same as before)
         const productsWithPrices = products.map(p => {
             const productData = p.toJSON();
             const variants = productData.variants || [];
 
             if (variants.length > 0) {
-                // Filter variants that have at least a net price
                 const validVariants = variants.filter(v => Number(v.price_net) > 0);
-
                 if (validVariants.length > 0) {
-                    // Get NET prices for determining the cheapest variant
                     const netPrices = validVariants.map(v => Number(v.price_net));
                     const minNetPrice = Math.min(...netPrices);
                     const maxNetPrice = Math.max(...netPrices);
 
-                    // minPrice is the NET price (the actual selling price)
                     productData.minPrice = minNetPrice;
                     productData.maxPrice = maxNetPrice;
 
-                    // Find the variant with the minimum NET price
                     const minVariant = validVariants.find(v => Number(v.price_net) === minNetPrice);
-
                     if (minVariant) {
-                        // Set satuan from this variant
                         if (minVariant.satuan) {
                             productData.price_unit = minVariant.satuan;
                         }
-
-                        // minPriceGross is the GROSS price of this variant (for strikethrough display)
                         if (minVariant.price_gross && Number(minVariant.price_gross) > 0) {
                             productData.minPriceGross = Number(minVariant.price_gross);
                         }
@@ -132,11 +138,19 @@ const getProducts = async (req, res) => {
                     }
                 }
             }
-
             return productData;
         });
 
-        res.json({ success: true, data: productsWithPrices });
+        res.json({
+            success: true,
+            data: productsWithPrices,
+            meta: {
+                total: count,
+                page: pageVal,
+                totalPages: Math.ceil(count / limitVal),
+                limit: limitVal
+            }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
