@@ -348,15 +348,26 @@ const generateDocumentPDF = (document) => {
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
 
+                            // Calculate dynamic row height based on name length
+                            const nameWidth = 190;
+                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth });
+                            const rowHeight = Math.max(nameHeight, 10) + 10; // Minimum content height + padding
+
+                            // Check page break before rendering
+                            if (y + rowHeight > 750) {
+                                doc.addPage();
+                                y = 40;
+                            }
+
                             doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                .text(displayName, 45, y, { width: 190 })
+                                .text(displayName, 45, y, { width: nameWidth })
                                 .text(formatCurrency(row.priceGross), 240, y, { width: 50, align: 'right' })
                                 .text(row.discount > 0 ? `${row.discount}%` : '-', 295, y, { width: 30, align: 'center' })
                                 .text(formatCurrency(row.priceNet), 330, y, { width: 55, align: 'right' })
                                 .text(row.qty.toString(), 390, y, { width: 25, align: 'center' })
                                 .text(formatCurrency(row.total), 420, y, { width: 135, align: 'right' });
-                            y += 18;
-                            if (y > 750) { doc.addPage(); y = 40; }
+
+                            y += rowHeight;
                         });
 
                         // Item Subtotal - Use pre-calculated subtotal from window if available
