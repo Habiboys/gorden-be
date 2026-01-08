@@ -353,10 +353,17 @@ const generateDocumentPDF = (document) => {
                             if (y > 750) { doc.addPage(); y = 40; }
                         });
 
-                        // Item Subtotal
-                        const rowsTotal = allRows.reduce((sum, r) => sum + r.total, 0);
-                        const itemDiscount = item.itemDiscount || 0;
-                        const subtotalAfterDiscount = rowsTotal * (1 - itemDiscount / 100);
+                        // Item Subtotal - Use pre-calculated subtotal from window if available
+                        let subtotalAfterDiscount;
+                        if (matchingWindow && matchingWindow.subtotal !== undefined) {
+                            // Use the pre-calculated subtotal which was correctly computed during save
+                            subtotalAfterDiscount = matchingWindow.subtotal;
+                        } else {
+                            // Fallback: calculate from rows (may be inaccurate for old data)
+                            const rowsTotal = allRows.reduce((sum, r) => sum + r.total, 0);
+                            const itemDiscount = item.itemDiscount || 0;
+                            subtotalAfterDiscount = rowsTotal * (1 - itemDiscount / 100);
+                        }
 
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
                             .text('Subtotal', 350, y, { width: 60, align: 'right' });
