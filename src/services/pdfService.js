@@ -241,7 +241,7 @@ const generateDocumentPDF = (document) => {
                     // ===== NEW: Use raw_items for accurate data =====
                     docData.raw_items.forEach((item, idx) => {
                         // Window/Item Header
-                        const itemTitle = `${idx + 1}. ${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} - Ukuran ${item.width}cm x ${item.height}cm`;
+                        const itemTitle = `${item.quantity || 1}. ${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} - Ukuran ${item.width}cm x ${item.height}cm`;
                         const packageType = item.packageType === 'gorden-lengkap' ? 'Gorden Lengkap' : 'Gorden Saja';
 
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
@@ -319,7 +319,7 @@ const generateDocumentPDF = (document) => {
                                     const compGross = Number(comp.productPriceGross) || Number(comp.productPrice) || Number(comp.product?.price_gross) || Number(comp.product?.price) || 0;
                                     const compNet = Number(comp.productPriceNet) || Number(comp.product?.price_net) || compGross;
                                     const compDiscount = comp.discount || (compGross > 0 ? Math.round(((compGross - compNet) / compGross) * 100) : 0);
-                                    const compQty = comp.qty || 1;
+                                    const compQty = comp.displayQty || comp.qty || 1;  // Use displayQty for multiplied qty
                                     const compTotal = comp.componentTotal || (compNet * compQty);
                                     const compName = comp.productName || comp.product?.name || 'Komponen';
 
