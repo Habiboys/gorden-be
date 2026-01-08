@@ -319,7 +319,7 @@ const generateDocumentPDF = (document) => {
                                     const compGross = Number(comp.productPriceGross) || Number(comp.productPrice) || Number(comp.product?.price_gross) || Number(comp.product?.price) || 0;
                                     const compNet = Number(comp.productPriceNet) || Number(comp.product?.price_net) || compGross;
                                     const compDiscount = comp.discount || (compGross > 0 ? Math.round(((compGross - compNet) / compGross) * 100) : 0);
-                                    const compQty = comp.displayQty || comp.qty || 1;  // Use displayQty for multiplied qty
+                                    const compQty = comp.displayQty || ((comp.qty || 1) * (item.quantity || 1));  // Use displayQty or multiply by window count
                                     const compTotal = comp.componentTotal || (compNet * compQty);
                                     const compName = comp.productName || comp.product?.name || 'Komponen';
 
