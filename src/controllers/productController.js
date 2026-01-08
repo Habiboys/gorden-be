@@ -160,7 +160,14 @@ const getProducts = async (req, res) => {
 const getProductDetail = async (req, res) => {
     try {
         const { id } = req.params;
-        const product = await Product.findByPk(id, {
+
+        // Check if id is a UUID (contains dashes and is 36 chars) or SKU
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        const whereClause = isUUID ? { id } : { sku: id };
+
+        const product = await Product.findOne({
+            where: whereClause,
             include: [
                 { model: Category, attributes: ['id', 'name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
@@ -199,6 +206,18 @@ const createProduct = async (req, res) => {
             meta_title, meta_description, meta_keywords, status
         } = req.body;
 
+        // Check for duplicate SKU
+        if (sku) {
+            const existingProduct = await Product.findOne({ where: { sku } });
+            if (existingProduct) {
+                return res.status(400).json({
+                    success: false,
+                    message: `SKU "${sku}" sudah digunakan oleh produk lain`,
+                    field: 'sku'
+                });
+            }
+        }
+
         const product = await Product.create({
             category_id, subcategory_id, name, sku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
@@ -212,9 +231,17 @@ const createProduct = async (req, res) => {
             data: product
         });
     } catch (error) {
+        // Handle unique constraint violation
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(400).json({
+                success: false,
+                message: `SKU sudah digunakan oleh produk lain`,
+                field: 'sku'
+            });
+        }
         res.status(500).json({
             success: false,
-            message: 'Error creating product',
+            message: 'Gagal membuat produk',
             error: error.message
         });
     }
@@ -228,6 +255,18 @@ const updateProduct = async (req, res) => {
                 success: false,
                 message: 'Product not found'
             });
+        }
+
+        // Check for duplicate SKU (if SKU is being updated and is different)
+        if (req.body.sku && req.body.sku !== product.sku) {
+            const existingProduct = await Product.findOne({ where: { sku: req.body.sku } });
+            if (existingProduct && existingProduct.id !== product.id) {
+                return res.status(400).json({
+                    success: false,
+                    message: `SKU "${req.body.sku}" sudah digunakan oleh produk lain`,
+                    field: 'sku'
+                });
+            }
         }
 
         // Cleanup removed images if images are being updated
@@ -249,10 +288,17 @@ const updateProduct = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error updating product:', error);
-        console.error('❌ Error stack:', error.stack);
+        // Handle unique constraint violation
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(400).json({
+                success: false,
+                message: `SKU sudah digunakan oleh produk lain`,
+                field: 'sku'
+            });
+        }
         res.status(500).json({
             success: false,
-            message: 'Error updating product',
+            message: 'Gagal mengupdate produk',
             error: error.message
         });
     }

@@ -1,4 +1,6 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * Generate simple modern PDF with compact text sizes
@@ -45,34 +47,38 @@ const generateDocumentPDF = (document) => {
             const isInvoice = document.type === 'INVOICE';
 
             // ============ HEADER ============
-            doc.fontSize(14).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 40, 35);
-            doc.fontSize(6).font('Helvetica').fillColor(gray).text('Pusat Gorden Berkualitas', 40, 52);
+            // Logo (if exists)
+            const logoPath = path.join(__dirname, '../assets/logo.png');
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, 40, 25, { height: 40 });
+                // Text next to logo
+                // doc.fontSize(14).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 90, 30);
+                doc.fontSize(6).font('Helvetica').fillColor(gray).text('Toko Gorden dan Blind Berkualitas', 40, 70);
+            } else {
+                // Fallback: text only
+                doc.fontSize(14).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 40, 35);
+                doc.fontSize(6).font('Helvetica').fillColor(gray).text('Toko Gorden dan Blind Berkualitas', 40, 52);
+            }
 
-            doc.fontSize(12).font('Helvetica-Bold').fillColor(accent)
+            // Document type in black
+            doc.fontSize(12).font('Helvetica-Bold').fillColor(dark)
                 .text(isInvoice ? 'INVOICE' : 'PENAWARAN', 350, 35, { width: 205, align: 'right' });
+            // Document number below, then date
             doc.fontSize(7).font('Helvetica').fillColor(gray)
                 .text(document.document_number, 350, 50, { width: 205, align: 'right' });
+            doc.fontSize(7).font('Helvetica').fillColor(dark)
+                .text(formatDate(document.created_at || document.createdAt), 350, 60, { width: 205, align: 'right' });
 
-            doc.moveTo(40, 68).lineTo(555, 68).lineWidth(0.5).stroke('#e5e7eb');
+            doc.moveTo(40, 82).lineTo(555, 82).lineWidth(0.5).stroke('#e5e7eb');
 
             // ============ INFO ============
-            let y = 78;
-            doc.fontSize(6).font('Helvetica').fillColor(gray).text('KEPADA', 40, y);
+            let y = 92;
+            doc.fontSize(6).font('Helvetica-Bold').fillColor(dark).text('PELANGGAN', 40, y);
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text(document.customer_name || '-', 40, y + 9);
             doc.fontSize(6).font('Helvetica').fillColor(gray)
                 .text(document.customer_phone || '', 40, y + 19)
                 .text(document.customer_email || '', 40, y + 28)
                 .text(document.address || '', 40, y + 37, { width: 180 });
-
-            doc.fontSize(6).font('Helvetica').fillColor(gray).text('TANGGAL', 400, y, { width: 155, align: 'right' });
-            doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                .text(formatDate(document.created_at || document.createdAt), 400, y + 9, { width: 155, align: 'right' });
-
-            if (!isInvoice && document.valid_until) {
-                doc.fontSize(6).font('Helvetica').fillColor(gray).text('BERLAKU SAMPAI', 400, y + 22, { width: 155, align: 'right' });
-                doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                    .text(formatDate(document.valid_until), 400, y + 31, { width: 155, align: 'right' });
-            }
 
             // ============ TABLE ============
             y = 150;
@@ -155,6 +161,9 @@ const generateDocumentPDF = (document) => {
 
                         // Name Fix Logic
                         let displayName = item.name || '-';
+                        // Remove "Pilih [Label]:"
+                        displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
+
                         if (displayName === '-' || displayName.includes('undefined')) {
                             if (item.selectedVariant) {
                                 if (item.selectedVariant.name && !item.selectedVariant.name.includes('undefined')) {
@@ -211,54 +220,159 @@ const generateDocumentPDF = (document) => {
 
             } else {
                 // ==================== LEGACY VIEW (Curtains / Standard) ====================
+                // Use raw_items when available for accurate price data
+                const useRawItems = docData.raw_items && docData.raw_items.length > 0;
+
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
                 y += 5;
-                // Updated column headers with Disc column
-                doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                    .text('DESKRIPSI', 40, y)
-                    .text('HARGA', 310, y, { width: 60, align: 'right' })
-                    .text('DISC', 375, y, { width: 35, align: 'center' })
-                    .text('QTY', 415, y, { width: 30, align: 'center' })
-                    .text('TOTAL', 450, y, { width: 105, align: 'right' });
+                // Updated column headers - all CAPITAL with HARGA NET added
+                doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
+                    .text('NAMA', 40, y)
+                    .text('HARGA', 240, y, { width: 50, align: 'right' })
+                    .text('DISC', 295, y, { width: 30, align: 'center' })
+                    .text('HARGA NET', 330, y, { width: 55, align: 'right' })
+                    .text('QTY', 390, y, { width: 25, align: 'center' })
+                    .text('TOTAL', 420, y, { width: 135, align: 'right' });
                 y += 12;
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
                 y += 6;
 
-                if (docData.windows) {
+                if (useRawItems) {
+                    // ===== NEW: Use raw_items for accurate data =====
+                    docData.raw_items.forEach((item, idx) => {
+                        // Window/Item Header
+                        const itemTitle = `${idx + 1}. ${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} - Ukuran ${item.width}cm x ${item.height}cm`;
+                        const packageType = item.packageType === 'gorden-lengkap' ? 'Gorden Lengkap' : 'Gorden Saja';
+
+                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
+                            .text(itemTitle, 40, y);
+                        doc.fontSize(6).font('Helvetica').fillColor(gray).text(packageType, 40, y + 10);
+                        y += 18;
+
+                        // Build all rows for this item
+                        const allRows = [];
+
+                        // ===== FABRIC ROW =====
+                        const fabricGross = Number(item.selectedVariant?.price_gross) || Number(item.selectedVariant?.price) || Number(item.product?.price) || 0;
+                        const fabricNet = Number(item.selectedVariant?.price_net) || fabricGross;
+                        const fabricDiscount = item.fabricDiscount || (fabricGross > 0 ? Math.round(((fabricGross - fabricNet) / fabricGross) * 100) : 0);
+                        const variantMultiplier = item.selectedVariant?.quantity_multiplier || 1;
+                        const effectiveQty = variantMultiplier * item.quantity;
+                        const fabricTotal = fabricNet * effectiveQty;
+
+                        // Get variant name
+                        let variantName = '-';
+                        if (item.selectedVariant) {
+                            try {
+                                const attrs = typeof item.selectedVariant.attributes === 'string'
+                                    ? JSON.parse(item.selectedVariant.attributes)
+                                    : item.selectedVariant.attributes;
+                                if (attrs && Object.keys(attrs).length > 0) {
+                                    variantName = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ');
+                                } else if (item.selectedVariant.name) {
+                                    variantName = item.selectedVariant.name;
+                                }
+                            } catch (e) {
+                                if (item.selectedVariant.name) variantName = item.selectedVariant.name;
+                            }
+                        }
+
+                        const productName = item.product?.name || item.productName || 'Gorden';
+                        allRows.push({
+                            name: `${productName} (${variantName})`,
+                            priceGross: Math.round(fabricGross),
+                            discount: fabricDiscount,
+                            priceNet: Math.round(fabricNet),
+                            qty: effectiveQty,
+                            total: Math.round(fabricTotal)
+                        });
+
+                        // ===== COMPONENT ROWS =====
+                        if (item.packageType === 'gorden-lengkap' && item.components) {
+                            const componentsList = Array.isArray(item.components)
+                                ? item.components
+                                : Object.values(item.components);
+
+                            componentsList.forEach((comp) => {
+                                const compGross = Number(comp.productPriceGross) || Number(comp.productPrice) || Number(comp.product?.price_gross) || Number(comp.product?.price) || 0;
+                                const compNet = Number(comp.productPriceNet) || Number(comp.product?.price_net) || compGross;
+                                const compDiscount = comp.discount || (compGross > 0 ? Math.round(((compGross - compNet) / compGross) * 100) : 0);
+                                const compQty = comp.qty || 1;
+                                const compTotal = comp.componentTotal || (compNet * compQty);
+                                const compName = comp.productName || comp.product?.name || 'Komponen';
+
+                                allRows.push({
+                                    name: compName,
+                                    priceGross: Math.round(compGross),
+                                    discount: compDiscount,
+                                    priceNet: Math.round(compNet),
+                                    qty: compQty,
+                                    total: Math.round(compTotal)
+                                });
+                            });
+                        }
+
+                        // Render all rows
+                        allRows.forEach(row => {
+                            // Clean display name
+                            let displayName = row.name || '-';
+                            displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
+                            displayName = displayName.replace(/undefined/g, '-');
+
+                            doc.fontSize(6).font('Helvetica').fillColor(dark)
+                                .text(displayName, 45, y, { width: 190 })
+                                .text(formatCurrency(row.priceGross), 240, y, { width: 50, align: 'right' })
+                                .text(row.discount > 0 ? `${row.discount}%` : '-', 295, y, { width: 30, align: 'center' })
+                                .text(formatCurrency(row.priceNet), 330, y, { width: 55, align: 'right' })
+                                .text(row.qty.toString(), 390, y, { width: 25, align: 'center' })
+                                .text(formatCurrency(row.total), 420, y, { width: 135, align: 'right' });
+                            y += 12;
+                            if (y > 750) { doc.addPage(); y = 40; }
+                        });
+
+                        // Item Subtotal
+                        const rowsTotal = allRows.reduce((sum, r) => sum + r.total, 0);
+                        const itemDiscount = item.itemDiscount || 0;
+                        const subtotalAfterDiscount = rowsTotal * (1 - itemDiscount / 100);
+
+                        doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
+                            .text('Subtotal', 350, y, { width: 60, align: 'right' });
+                        doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
+                            .text(formatCurrency(Math.round(subtotalAfterDiscount)), 420, y, { width: 135, align: 'right' });
+                        y += 15;
+                        y += 3;
+                    });
+
+                } else if (docData.windows) {
+                    // ===== FALLBACK: Legacy windows.items =====
                     docData.windows.forEach(window => {
                         // Window Header
-                        doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
+                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(`${window.title || ''} - ${window.size || ''}`, 40, y);
                         if (window.fabricType) {
                             doc.fontSize(6).font('Helvetica').fillColor(gray).text(window.fabricType, 40, y + 10);
                         }
                         y += 18;
 
-                        // Window Items (Fabric + Components)
+                        // Window Items
                         if (window.items) {
                             window.items.forEach(item => {
-                                const itemTotal = item.totalPrice || (parseFloat(item.price) || 0) * (item.quantity || 1);
-                                const itemDiscount = item.discount || 0;
+                                const itemPriceGross = parseFloat(item.price_gross) || parseFloat(item.price) || 0;
+                                const itemPriceNet = parseFloat(item.price_net) || itemPriceGross;
+                                const itemDiscount = item.discount || (itemPriceGross > 0 ? Math.round(((itemPriceGross - itemPriceNet) / itemPriceGross) * 100) : 0);
+                                const itemTotal = item.totalPrice || itemPriceNet * (item.quantity || 1);
 
-                                // Name Fix Logic (Legacy/Simple Item)
-                                // Only have item.name string here typically (e.g. "Gorden x (Variant)") 
-                                // so we just check if string has "undefined"
                                 let displayName = item.name || '-';
-                                if (displayName.includes('undefined')) {
-                                    // Attempt to clean it up. 
-                                    // Pattern often: "Smokering 3 (undefinedxundefinedcm)"
-                                    // We can just remove the undefined part or replace with generic
-                                    displayName = displayName.replace(/\(undefinedxundefinedcm\)/g, '').trim();
-                                    // Also "Varian: undefined"
-                                    displayName = displayName.replace(/undefined/g, '-');
-                                }
+                                displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
+                                displayName = displayName.replace(/undefined/g, '-');
 
-                                doc.fontSize(7).font('Helvetica').fillColor(dark)
-                                    .text(displayName, 45, y, { width: 260 })
-                                    .text(formatCurrency(parseFloat(item.price) || 0), 310, y, { width: 60, align: 'right' })
-                                    .text(itemDiscount > 0 ? `${itemDiscount}%` : '-', 375, y, { width: 35, align: 'center' })
-                                    .text((item.quantity || 1).toString(), 415, y, { width: 30, align: 'center' })
-                                    .text(formatCurrency(itemTotal), 450, y, { width: 105, align: 'right' });
+                                doc.fontSize(6).font('Helvetica').fillColor(dark)
+                                    .text(displayName, 45, y, { width: 190 })
+                                    .text(formatCurrency(Math.round(itemPriceGross)), 240, y, { width: 50, align: 'right' })
+                                    .text(itemDiscount > 0 ? `${itemDiscount}%` : '-', 295, y, { width: 30, align: 'center' })
+                                    .text(formatCurrency(Math.round(itemPriceNet)), 330, y, { width: 55, align: 'right' })
+                                    .text((item.quantity || 1).toString(), 390, y, { width: 25, align: 'center' })
+                                    .text(formatCurrency(Math.round(itemTotal)), 420, y, { width: 135, align: 'right' });
                                 y += 12;
                                 if (y > 750) { doc.addPage(); y = 40; }
                             });
@@ -266,10 +380,10 @@ const generateDocumentPDF = (document) => {
 
                         // Window Subtotal
                         if (window.subtotal) {
-                            doc.fontSize(7).font('Helvetica-Bold').fillColor(gray)
-                                .text('Subtotal', 380, y, { width: 60, align: 'right' });
-                            doc.fontSize(7).font('Helvetica-Bold').fillColor(accent)
-                                .text(formatCurrency(window.subtotal), 450, y, { width: 105, align: 'right' });
+                            doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
+                                .text('Subtotal', 350, y, { width: 60, align: 'right' });
+                            doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
+                                .text(formatCurrency(window.subtotal), 420, y, { width: 135, align: 'right' });
                             y += 15;
                         }
                         y += 3;
@@ -288,6 +402,7 @@ const generateDocumentPDF = (document) => {
 
             if (discount > 0) {
                 doc.fontSize(7).font('Helvetica').fillColor(gray).text('Diskon', 380, y);
+                // Discount price in green
                 doc.fillColor('#10b981').text(`-${formatCurrency(discount)}`, 485, y, { width: 70, align: 'right' });
                 y += 12;
             }
@@ -295,7 +410,8 @@ const generateDocumentPDF = (document) => {
             doc.moveTo(380, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
             y += 8;
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', 380, y);
-            doc.fontSize(9).fillColor(accent).text(formatCurrency(total), 460, y - 1, { width: 95, align: 'right' });
+            // Total price in black
+            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), 460, y - 1, { width: 95, align: 'right' });
 
             // ============ PAYMENT ============
             y += 30;

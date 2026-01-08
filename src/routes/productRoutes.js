@@ -30,6 +30,12 @@ router.post('/categories', productController.createCategory);
 router.put('/categories/:id', productController.updateCategory);
 router.delete('/categories/:id', productController.deleteCategory);
 
+// Product Import from Excel
+router.get('/products/import/template/products', productImportController.downloadProductTemplate);
+router.get('/products/import/template/variants', productImportController.downloadVariantTemplate);
+router.post('/products/import/products', upload.single('file'), productImportController.importProducts);
+router.post('/products/import/variants', upload.single('file'), productImportController.importVariants);
+
 // Product Variants
 router.get('/products/:productId/variants', productVariantController.getByProduct);
 router.get('/products/:productId/variants/match', productVariantController.getMatchingVariants);
@@ -37,11 +43,5 @@ router.post('/products/:productId/variants', productVariantController.create);
 router.post('/products/:productId/variants/bulk', productVariantController.bulkCreate);
 router.put('/variants/:id', productVariantController.update);
 router.delete('/variants/:id', productVariantController.delete);
-
-// Product Import from Excel
-router.get('/products/import/template/products', productImportController.downloadProductTemplate);
-router.get('/products/import/template/variants', productImportController.downloadVariantTemplate);
-router.post('/products/import/products', upload.single('file'), productImportController.importProducts);
-router.post('/products/import/variants', upload.single('file'), productImportController.importVariants);
 
 module.exports = router;

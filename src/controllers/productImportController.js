@@ -142,10 +142,10 @@ const downloadVariantTemplate = async (req, res) => {
         const wb = XLSX.utils.book_new();
 
         const templateData = [
-            ['product_sku', 'lebar', 'tinggi', 'sibak', 'gelombang', 'price_gross', 'price_net', 'satuan', 'quantity_multiplier'],
-            ['GRD-BLK-001', '100', '200', '2', '6', '150000', '120000', 'm', '2'],
-            ['GRD-BLK-001', '100', '210', '2', '6', '155000', '125000', 'm', '2'],
-            ['GRD-BLK-001', '100', '220', '3', '8', '180000', '145000', 'm', '3'],
+            ['product_sku', 'lebar', 'tinggi', 'sibak', 'price_gross', 'price_net', 'satuan', 'quantity_multiplier'],
+            ['GRD-BLK-001', '100', '200', '2', '150000', '120000', 'm', '2'],
+            ['GRD-BLK-001', '100', '210', '2', '155000', '125000', 'm', '2'],
+            ['GRD-BLK-001', '100', '220', '3', '180000', '145000', 'm', '3'],
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -156,7 +156,6 @@ const downloadVariantTemplate = async (req, res) => {
             { wch: 10 }, // lebar
             { wch: 10 }, // tinggi
             { wch: 10 }, // sibak
-            { wch: 12 }, // gelombang
             { wch: 15 }, // price_gross
             { wch: 15 }, // price_net
             { wch: 10 }, // satuan
@@ -359,7 +358,6 @@ const importVariants = async (req, res) => {
                 if (row.lebar) attributes['Lebar'] = String(row.lebar);
                 if (row.tinggi) attributes['Tinggi'] = String(row.tinggi);
                 if (row.sibak) attributes['Sibak'] = String(row.sibak);
-                if (row.gelombang) attributes['Gelombang'] = String(row.gelombang);
 
                 // Create variant
                 const variant = await ProductVariant.create({
@@ -368,7 +366,8 @@ const importVariants = async (req, res) => {
                     price_gross: parseFloat(row.price_gross) || null,
                     price_net: parseFloat(row.price_net) || null,
                     satuan: row.satuan || 'm',
-                    quantity_multiplier: parseInt(row.quantity_multiplier) || 1,
+                    // Use Sibak as multiplier if present, otherwise check explicit multiplier column, else default 1
+                    quantity_multiplier: row.sibak ? parseInt(row.sibak) : (parseInt(row.quantity_multiplier) || 1),
                     is_active: true
                 });
 
@@ -376,6 +375,7 @@ const importVariants = async (req, res) => {
                     row: rowNum,
                     variant: {
                         id: variant.id,
+                        product_id: productId,
                         product_sku: row.product_sku,
                         attributes: variant.attributes
                     }
@@ -383,6 +383,81 @@ const importVariants = async (req, res) => {
 
             } catch (error) {
                 results.errors.push({ row: rowNum, message: error.message, data: row });
+            }
+        }
+
+        // Update Product Configuration (variant_options) BEFORE sending response
+        // This ensures the Frontend UI has proper variant type cards with values populated
+        const distinctProductIds = [...new Set(results.success.map(r => r.variant.product_id).filter(id => id))];
+
+        // Collect all unique attribute values per product
+        const productAttributeValues = {};
+        for (const item of results.success) {
+            const pid = item.variant.product_id;
+            if (!pid) continue;
+            if (!productAttributeValues[pid]) {
+                productAttributeValues[pid] = { Lebar: new Set(), Tinggi: new Set(), Sibak: new Set() };
+            }
+            const attrs = item.variant.attributes || {};
+            if (attrs.Lebar) productAttributeValues[pid].Lebar.add(attrs.Lebar);
+            if (attrs.Tinggi) productAttributeValues[pid].Tinggi.add(attrs.Tinggi);
+            if (attrs.Sibak) productAttributeValues[pid].Sibak.add(attrs.Sibak);
+        }
+
+        // Check if the import data contains Sibak
+        const hasSibakData = data.some(row => row.sibak);
+
+        for (const productId of distinctProductIds) {
+            try {
+                const product = await Product.findByPk(productId);
+                if (product) {
+                    let options = product.variant_options || [];
+                    if (typeof options === 'string') {
+                        try { options = JSON.parse(options); } catch (e) { options = []; }
+                    }
+
+                    const attrData = productAttributeValues[productId] || {};
+
+                    // Helper to update or add an option
+                    const updateOrAddOption = (name, values, isMultiplier = false) => {
+                        const existingIdx = options.findIndex(opt => opt.name && opt.name.toLowerCase() === name.toLowerCase());
+                        const valuesArray = [...values].sort((a, b) => parseFloat(a) - parseFloat(b));
+
+                        if (existingIdx >= 0) {
+                            // Merge values
+                            const existingValues = options[existingIdx].values || [];
+                            const mergedValues = [...new Set([...existingValues, ...valuesArray])].sort((a, b) => parseFloat(a) - parseFloat(b));
+                            options[existingIdx].values = mergedValues;
+                            if (isMultiplier) options[existingIdx].is_multiplier = true;
+                        } else if (valuesArray.length > 0) {
+                            // Add new
+                            options.push({
+                                name: name,
+                                values: valuesArray,
+                                is_multiplier: isMultiplier
+                            });
+                        }
+                    };
+
+                    // Update Lebar
+                    if (attrData.Lebar && attrData.Lebar.size > 0) {
+                        updateOrAddOption('Lebar', attrData.Lebar, false);
+                    }
+
+                    // Update Tinggi
+                    if (attrData.Tinggi && attrData.Tinggi.size > 0) {
+                        updateOrAddOption('Tinggi', attrData.Tinggi, false);
+                    }
+
+                    // Update Sibak (with is_multiplier = true)
+                    if (attrData.Sibak && attrData.Sibak.size > 0) {
+                        updateOrAddOption('Sibak', attrData.Sibak, true);
+                    }
+
+                    await product.update({ variant_options: options });
+                }
+            } catch (updateError) {
+                console.error(`Failed to update variant options for product ${productId}:`, updateError);
             }
         }
 
