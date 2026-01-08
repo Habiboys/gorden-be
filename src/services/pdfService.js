@@ -252,64 +252,87 @@ const generateDocumentPDF = (document) => {
                         // Build all rows for this item
                         const allRows = [];
 
-                        // ===== FABRIC ROW =====
-                        const fabricGross = Number(item.selectedVariant?.price_gross) || Number(item.selectedVariant?.price) || Number(item.product?.price) || 0;
-                        const fabricNet = Number(item.selectedVariant?.price_net) || fabricGross;
-                        const fabricDiscount = item.fabricDiscount || (fabricGross > 0 ? Math.round(((fabricGross - fabricNet) / fabricGross) * 100) : 0);
-                        const variantMultiplier = item.selectedVariant?.quantity_multiplier || 1;
-                        const effectiveQty = variantMultiplier * item.quantity;
-                        const fabricTotal = fabricNet * effectiveQty;
-
-                        // Get variant name
-                        let variantName = '-';
-                        if (item.selectedVariant) {
-                            try {
-                                const attrs = typeof item.selectedVariant.attributes === 'string'
-                                    ? JSON.parse(item.selectedVariant.attributes)
-                                    : item.selectedVariant.attributes;
-                                if (attrs && Object.keys(attrs).length > 0) {
-                                    variantName = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ');
-                                } else if (item.selectedVariant.name) {
-                                    variantName = item.selectedVariant.name;
-                                }
-                            } catch (e) {
-                                if (item.selectedVariant.name) variantName = item.selectedVariant.name;
-                            }
-                        }
-
-                        const productName = item.product?.name || item.productName || 'Gorden';
-                        allRows.push({
-                            name: `${productName} (${variantName})`,
-                            priceGross: Math.round(fabricGross),
-                            discount: fabricDiscount,
-                            priceNet: Math.round(fabricNet),
-                            qty: effectiveQty,
-                            total: Math.round(fabricTotal)
-                        });
-
-                        // ===== COMPONENT ROWS =====
-                        if (item.packageType === 'gorden-lengkap' && item.components) {
-                            const componentsList = Array.isArray(item.components)
-                                ? item.components
-                                : Object.values(item.components);
-
-                            componentsList.forEach((comp) => {
-                                const compGross = Number(comp.productPriceGross) || Number(comp.productPrice) || Number(comp.product?.price_gross) || Number(comp.product?.price) || 0;
-                                const compNet = Number(comp.productPriceNet) || Number(comp.product?.price_net) || compGross;
-                                const compDiscount = comp.discount || (compGross > 0 ? Math.round(((compGross - compNet) / compGross) * 100) : 0);
-                                const compQty = comp.qty || 1;
-                                const compTotal = comp.componentTotal || (compNet * compQty);
-                                const compName = comp.productName || comp.product?.name || 'Komponen';
+                        // ===== TRY TO USE WINDOWS DATA FIRST (pre-calculated) =====
+                        // Find matching window data which has pre-calculated totalPrice
+                        const matchingWindow = docData.windows?.find(w => w.id === item.id);
+                        if (matchingWindow && matchingWindow.items && matchingWindow.items.length > 0) {
+                            // Use pre-calculated values from windows.items
+                            matchingWindow.items.forEach((wItem) => {
+                                let displayName = wItem.name || '-';
+                                displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
+                                displayName = displayName.replace(/undefined/g, '-');
 
                                 allRows.push({
-                                    name: compName,
-                                    priceGross: Math.round(compGross),
-                                    discount: compDiscount,
-                                    priceNet: Math.round(compNet),
-                                    qty: compQty,
-                                    total: Math.round(compTotal)
+                                    name: displayName,
+                                    priceGross: Math.round(wItem.price_gross || wItem.price || 0),
+                                    discount: wItem.discount || 0,
+                                    priceNet: Math.round(wItem.price_net || wItem.price || 0),
+                                    qty: wItem.quantity || 1,
+                                    total: Math.round(wItem.totalPrice || 0) // Use pre-calculated totalPrice
                                 });
                             });
+                        } else {
+                            // ===== FALLBACK: Calculate from raw_items =====
+                            // FABRIC ROW
+                            const fabricGross = Number(item.selectedVariant?.price_gross) || Number(item.selectedVariant?.price) || Number(item.product?.price) || 0;
+                            const fabricNet = Number(item.selectedVariant?.price_net) || fabricGross;
+                            const fabricDiscount = item.fabricDiscount || (fabricGross > 0 ? Math.round(((fabricGross - fabricNet) / fabricGross) * 100) : 0);
+                            const variantMultiplier = item.selectedVariant?.quantity_multiplier || 1;
+                            const effectiveQty = variantMultiplier * item.quantity;
+                            // Apply discount correctly: (Net Price * Qty) * (1 - discount%)
+                            const fabricTotal = fabricNet * effectiveQty * (1 - fabricDiscount / 100);
+
+                            // Get variant name
+                            let variantName = '-';
+                            if (item.selectedVariant) {
+                                try {
+                                    const attrs = typeof item.selectedVariant.attributes === 'string'
+                                        ? JSON.parse(item.selectedVariant.attributes)
+                                        : item.selectedVariant.attributes;
+                                    if (attrs && Object.keys(attrs).length > 0) {
+                                        variantName = Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ');
+                                    } else if (item.selectedVariant.name) {
+                                        variantName = item.selectedVariant.name;
+                                    }
+                                } catch (e) {
+                                    if (item.selectedVariant.name) variantName = item.selectedVariant.name;
+                                }
+                            }
+
+                            const productName = item.product?.name || item.productName || 'Gorden';
+                            allRows.push({
+                                name: `${productName} (${variantName})`,
+                                priceGross: Math.round(fabricGross),
+                                discount: fabricDiscount,
+                                priceNet: Math.round(fabricNet),
+                                qty: effectiveQty,
+                                total: Math.round(fabricTotal)
+                            });
+
+                            // ===== COMPONENT ROWS =====
+                            if (item.packageType === 'gorden-lengkap' && item.components) {
+                                const componentsList = Array.isArray(item.components)
+                                    ? item.components
+                                    : Object.values(item.components);
+
+                                componentsList.forEach((comp) => {
+                                    const compGross = Number(comp.productPriceGross) || Number(comp.productPrice) || Number(comp.product?.price_gross) || Number(comp.product?.price) || 0;
+                                    const compNet = Number(comp.productPriceNet) || Number(comp.product?.price_net) || compGross;
+                                    const compDiscount = comp.discount || (compGross > 0 ? Math.round(((compGross - compNet) / compGross) * 100) : 0);
+                                    const compQty = comp.qty || 1;
+                                    const compTotal = comp.componentTotal || (compNet * compQty);
+                                    const compName = comp.productName || comp.product?.name || 'Komponen';
+
+                                    allRows.push({
+                                        name: compName,
+                                        priceGross: Math.round(compGross),
+                                        discount: compDiscount,
+                                        priceNet: Math.round(compNet),
+                                        qty: compQty,
+                                        total: Math.round(compTotal)
+                                    });
+                                });
+                            }
                         }
 
                         // Render all rows
@@ -326,7 +349,7 @@ const generateDocumentPDF = (document) => {
                                 .text(formatCurrency(row.priceNet), 330, y, { width: 55, align: 'right' })
                                 .text(row.qty.toString(), 390, y, { width: 25, align: 'center' })
                                 .text(formatCurrency(row.total), 420, y, { width: 135, align: 'right' });
-                            y += 12;
+                            y += 18;
                             if (y > 750) { doc.addPage(); y = 40; }
                         });
 
@@ -339,8 +362,8 @@ const generateDocumentPDF = (document) => {
                             .text('Subtotal', 350, y, { width: 60, align: 'right' });
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                             .text(formatCurrency(Math.round(subtotalAfterDiscount)), 420, y, { width: 135, align: 'right' });
-                        y += 15;
-                        y += 3;
+                        y += 18;
+                        y += 5;
                     });
 
                 } else if (docData.windows) {
@@ -373,7 +396,7 @@ const generateDocumentPDF = (document) => {
                                     .text(formatCurrency(Math.round(itemPriceNet)), 330, y, { width: 55, align: 'right' })
                                     .text((item.quantity || 1).toString(), 390, y, { width: 25, align: 'center' })
                                     .text(formatCurrency(Math.round(itemTotal)), 420, y, { width: 135, align: 'right' });
-                                y += 12;
+                                y += 18;
                                 if (y > 750) { doc.addPage(); y = 40; }
                             });
                         }
@@ -386,7 +409,7 @@ const generateDocumentPDF = (document) => {
                                 .text(formatCurrency(window.subtotal), 420, y, { width: 135, align: 'right' });
                             y += 15;
                         }
-                        y += 3;
+                        y += 5;
                     });
                 }
             }
