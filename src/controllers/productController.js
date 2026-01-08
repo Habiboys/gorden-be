@@ -2,6 +2,40 @@ const { Product, Category, SubCategory, ProductPackage, ProductVariant, Sequeliz
 const { Op } = Sequelize;
 const { deleteImages, cleanupRemovedImages } = require('../utils/imageCleanup');
 
+// ================== SKU VALIDATION ==================
+// SKU must be: lowercase, no spaces, only alphanumeric and dashes
+const validateSku = (sku) => {
+    if (!sku) return { valid: true }; // SKU is optional
+
+    // Check for uppercase letters
+    if (sku !== sku.toLowerCase()) {
+        return { valid: false, message: 'SKU harus huruf kecil semua (lowercase)' };
+    }
+
+    // Check for spaces
+    if (/\s/.test(sku)) {
+        return { valid: false, message: 'SKU tidak boleh mengandung spasi' };
+    }
+
+    // Check for valid characters: only lowercase letters, numbers, and dashes
+    if (!/^[a-z0-9-]+$/.test(sku)) {
+        return { valid: false, message: 'SKU hanya boleh mengandung huruf kecil, angka, dan strip (-)' };
+    }
+
+    return { valid: true };
+};
+
+// Auto-format SKU to be valid
+const formatSku = (sku) => {
+    if (!sku) return sku;
+    return sku
+        .toLowerCase()           // Convert to lowercase
+        .replace(/\s+/g, '-')    // Replace spaces with dashes
+        .replace(/[^a-z0-9-]/g, '') // Remove special characters
+        .replace(/-+/g, '-')     // Replace multiple dashes with single dash
+        .replace(/^-|-$/g, '');  // Remove leading/trailing dashes
+};
+
 const getProducts = async (req, res) => {
     try {
         const { category, subcategory, search, sort, featured, new_arrival, best_seller, limit, category_id, subcategory_id, page = 1 } = req.query;
@@ -206,20 +240,32 @@ const createProduct = async (req, res) => {
             meta_title, meta_description, meta_keywords, status
         } = req.body;
 
-        // Check for duplicate SKU
-        if (sku) {
-            const existingProduct = await Product.findOne({ where: { sku } });
+        // Auto-format and validate SKU
+        let formattedSku = sku ? formatSku(sku) : undefined;
+
+        if (formattedSku) {
+            const skuValidation = validateSku(formattedSku);
+            if (!skuValidation.valid) {
+                return res.status(400).json({
+                    success: false,
+                    message: skuValidation.message,
+                    field: 'sku'
+                });
+            }
+
+            // Check for duplicate SKU
+            const existingProduct = await Product.findOne({ where: { sku: formattedSku } });
             if (existingProduct) {
                 return res.status(400).json({
                     success: false,
-                    message: `SKU "${sku}" sudah digunakan oleh produk lain`,
+                    message: `SKU "${formattedSku}" sudah digunakan oleh produk lain`,
                     field: 'sku'
                 });
             }
         }
 
         const product = await Product.create({
-            category_id, subcategory_id, name, sku, subtitle, description, information,
+            category_id, subcategory_id, name, sku: formattedSku, subtitle, description, information,
             price, original_price, price_self_measure, price_self_measure_install, price_measure_install,
             stock, discount_percent, min_width, max_width, min_length, max_length, price_unit, images, features, how_to_order,
             is_featured, is_new_arrival, is_best_seller, is_warranty, is_custom, variant_options,
@@ -257,15 +303,34 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // Check for duplicate SKU (if SKU is being updated and is different)
-        if (req.body.sku && req.body.sku !== product.sku) {
-            const existingProduct = await Product.findOne({ where: { sku: req.body.sku } });
-            if (existingProduct && existingProduct.id !== product.id) {
-                return res.status(400).json({
-                    success: false,
-                    message: `SKU "${req.body.sku}" sudah digunakan oleh produk lain`,
-                    field: 'sku'
-                });
+        // Auto-format and validate SKU (if being updated)
+        if (req.body.sku !== undefined) {
+            const formattedSku = formatSku(req.body.sku);
+
+            if (formattedSku) {
+                const skuValidation = validateSku(formattedSku);
+                if (!skuValidation.valid) {
+                    return res.status(400).json({
+                        success: false,
+                        message: skuValidation.message,
+                        field: 'sku'
+                    });
+                }
+
+                // Check for duplicate SKU (if different from current)
+                if (formattedSku !== product.sku) {
+                    const existingProduct = await Product.findOne({ where: { sku: formattedSku } });
+                    if (existingProduct && existingProduct.id !== product.id) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `SKU "${formattedSku}" sudah digunakan oleh produk lain`,
+                            field: 'sku'
+                        });
+                    }
+                }
+
+                // Update req.body with formatted SKU
+                req.body.sku = formattedSku;
             }
         }
 

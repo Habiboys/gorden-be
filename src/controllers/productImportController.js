@@ -225,10 +225,33 @@ const importProducts = async (req, res) => {
                     continue;
                 }
 
+                // Auto-format SKU: lowercase, no spaces, only alphanumeric and dashes
+                const formatSku = (sku) => {
+                    if (!sku) return sku;
+                    return String(sku)
+                        .toLowerCase()
+                        .replace(/\s+/g, '-')
+                        .replace(/[^a-z0-9-]/g, '')
+                        .replace(/-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                };
+
+                const formattedSku = formatSku(row.sku);
+
+                // Validate formatted SKU
+                if (!formattedSku || !/^[a-z0-9-]+$/.test(formattedSku)) {
+                    results.errors.push({
+                        row: rowNum,
+                        message: `SKU "${row.sku}" tidak valid. SKU hanya boleh huruf kecil, angka, dan strip (-)`,
+                        data: row
+                    });
+                    continue;
+                }
+
                 // Check for duplicate SKU
-                const existingProduct = await Product.findOne({ where: { sku: row.sku } });
+                const existingProduct = await Product.findOne({ where: { sku: formattedSku } });
                 if (existingProduct) {
-                    results.skipped.push({ row: rowNum, message: `SKU "${row.sku}" already exists`, data: row });
+                    results.skipped.push({ row: rowNum, message: `SKU "${formattedSku}" sudah ada`, data: row });
                     continue;
                 }
 
@@ -272,7 +295,7 @@ const importProducts = async (req, res) => {
                 // Create product
                 const product = await Product.create({
                     name: row.name,
-                    sku: row.sku,
+                    sku: formattedSku,
                     category_id: categoryId || null,
                     subcategory_id: subcategoryId || null,
                     description: row.description || null,
