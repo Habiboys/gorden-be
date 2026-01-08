@@ -22,7 +22,7 @@ const generateDocumentPDF = (document) => {
             const dark = '#111827';
             const gray = '#6b7280';
 
-            const formatCurrency = (amt) => 'Rp ' + new Intl.NumberFormat('id-ID').format(amt || 0);
+            const formatCurrency = (amt) => 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(amt || 0);
             const formatDate = (d) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 
             // Parse data
