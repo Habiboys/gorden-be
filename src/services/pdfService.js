@@ -220,7 +220,7 @@ const generateDocumentPDF = (document) => {
                         // Render with Justify and Wide Column
                         const nameWidth = 200;
                         const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
-                        const rowHeight = Math.max(nameHeight, 10) + 10;
+                        const rowHeight = Math.max(nameHeight, 10) + 4; // Reduced spacing from +10 to +4
 
                         if (y + rowHeight > 780) { doc.addPage(); y = 40; }
 
@@ -274,9 +274,7 @@ const generateDocumentPDF = (document) => {
                     total: 470
                 };
 
-                // Line ABOVE column headers
-                doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.5).stroke(dark);
-
+                // Single line below header only (removed double line)
                 doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                     .text('NAMA', colX.name, y)
                     .text('HARGA SATUAN', colX.price, y, { width: 50, align: 'right' })
@@ -395,7 +393,7 @@ const generateDocumentPDF = (document) => {
 
                             const nameWidth = 210; // Increased from 190 to fill gap
                             const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
-                            const rowHeight = Math.max(nameHeight, 10) + 10;
+                            const rowHeight = Math.max(nameHeight, 10) + 4; // Reduced spacing from +10 to +4
 
                             if (y + rowHeight > 780) { doc.addPage(); y = 40; }
 
@@ -465,12 +463,19 @@ const generateDocumentPDF = (document) => {
                 }
             }
 
-            // ============ TOTALS ============
+            // ============ TOTALS + PAYMENT + FOOTER (Consolidated) ============
+            // Calculate required space for ALL footer content (~120px)
+            const footerHeight = 120;
+            if (y + footerHeight > 800) {
+                doc.addPage();
+                y = 40;
+            }
+
+            // --- TOTALS SECTION ---
             y += 8;
             doc.moveTo(380, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
             y += 8;
 
-            // Adjusted X for closer label-value pair ("jangan sampai jarak jauh")
             const totalLabelX = 410;
             const totalValueX = 485;
             const totalValueWidth = 70;
@@ -490,11 +495,8 @@ const generateDocumentPDF = (document) => {
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', totalLabelX, y);
             doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), totalValueX - 25, y - 1, { width: 95, align: 'right' });
 
-            // ============ PAYMENT ============
-            y += 30;
-            // Only add new page if there's truly not enough space for ALL remaining content (~80px)
-            if (y > 780) { doc.addPage(); y = 40; }
-
+            // --- PAYMENT SECTION ---
+            y += 25;
             doc.fontSize(7).font('Helvetica-Bold').fillColor(dark).text('PEMBAYARAN', 40, y);
             doc.fontSize(7).font('Helvetica').fillColor(gray)
                 .text(docData.paymentTerms || 'Bank BRI: 0763 0100 1160 564 a.n. ABDUL RAHIM', 40, y + 10, { width: 220 });
@@ -505,16 +507,15 @@ const generateDocumentPDF = (document) => {
             }
 
             if (docData.notes) {
-                y += 35;
+                y += 30;
                 doc.fontSize(6).font('Helvetica').fillColor(gray).text('Catatan: ' + docData.notes, 40, y, { width: 300 });
             }
 
-            // ============ FOOTER (on same page as payment, not absolute positioned) ============
-            y += 40;
-            if (y > 790) y = 790; // Cap at bottom of page
+            // --- FOOTER ---
+            y += 35;
             doc.fontSize(7).font('Helvetica').fillColor(gray)
                 .text('Terima kasih atas kepercayaan Anda', 40, y, { align: 'center', width: 515 });
-            doc.rect(40, y + 20, 515, 2).fill(accent);
+            // Pink line removed per user request
 
             doc.end();
         } catch (error) { reject(error); }
