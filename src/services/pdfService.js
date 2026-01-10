@@ -83,18 +83,21 @@ const generateDocumentPDF = (document) => {
 
             // Header already added by addPageHeader() function above
 
-            // ============ INFO ============
-            let y = 92;
+            // ============ INFO (compact) ============
+            let y = 88;
             doc.fontSize(6).font('Helvetica-Bold').fillColor(dark).text('PELANGGAN', 40, y);
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text(document.customer_name || '-', 40, y + 9);
-            // Removed Phone and Email as requested
-            doc.fontSize(6).font('Helvetica').fillColor(gray)
-                // .text(document.customer_phone || '', 40, y + 19)
-                // .text(document.customer_email || '', 40, y + 28)
-                .text(document.address || '', 40, y + 19, { width: 180 }); // Adjusted Y since lines removed
+            // Show address if exists, otherwise skip
+            const hasAddress = document.address && document.address.trim();
+            if (hasAddress) {
+                doc.fontSize(6).font('Helvetica').fillColor(gray)
+                    .text(document.address, 40, y + 19, { width: 180 });
+                y = 135; // After address (moderate spacing)
+            } else {
+                y = 120; // No address, moderate spacing
+            }
 
             // ============ TABLE ============
-            y = 150;
 
             const isBlindType = docData.calculatorTypeSlug && docData.calculatorTypeSlug.includes('blind');
 
@@ -125,36 +128,24 @@ const generateDocumentPDF = (document) => {
                     // doc.rect(40, y, 515, 25).fill('#f9fafb'); 
                     // doc.rect(40, y, 515, 25).stroke('#e5e7eb');
 
-                    // Product Name & Variant Attributes - Minimalist Style
-                    let variantAttr = '';
-                    if (firstItem.selectedVariant?.attributes) {
+                    // Product Name with Variant - Minimalist Style
+                    const variantAttrs = firstItem.selectedVariant?.attributes;
+                    let variantInfo = '';
+                    if (variantAttrs) {
                         try {
-                            const attrs = typeof firstItem.selectedVariant.attributes === 'string'
-                                ? JSON.parse(firstItem.selectedVariant.attributes)
-                                : firstItem.selectedVariant.attributes;
+                            const attrs = typeof variantAttrs === 'string' ? JSON.parse(variantAttrs) : variantAttrs;
                             if (attrs && Object.keys(attrs).length > 0) {
-                                // Only show value like "Ukur | Pasang Teknisi"
-                                variantAttr = Object.values(attrs).join(' | ');
+                                variantInfo = ' (' + Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ') + ')';
                             }
                         } catch (e) { }
                     }
-                    const productName = product?.name || 'Produk Custom';
                     doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                        .text(productName, 40, y);
-
-                    // Show variant attribute below product name if exists
-                    if (variantAttr) {
-                        doc.fontSize(6).font('Helvetica').fillColor(gray)
-                            .text(`(${variantAttr})`, 40, y + 10);
-                        y += 8; // Extra space for variant line
-                    }
+                        .text((product?.name || 'Produk Custom') + variantInfo, 40, y);
 
                     // Price: 7pt Gray
                     const priceText = product?.price ? formatCurrency(product.price) + '/m' : '';
-                    if (priceText) {
-                        doc.fontSize(7).font('Helvetica').fillColor(gray)
-                            .text(priceText, 40, y + 10);
-                    }
+                    doc.fontSize(7).font('Helvetica').fillColor(gray)
+                        .text(priceText, 40, y + 10);
 
                     y += 20; // Reduced spacing (was 35)
 
@@ -306,7 +297,7 @@ const generateDocumentPDF = (document) => {
                 // Single line below header only (removed double line)
                 doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                     .text('NAMA', colX.name, y)
-                    .text('HARGA SATUAN', colX.price, y, { width: 50, align: 'right' })
+                    .text('HARGA', colX.price, y, { width: 50, align: 'right' })
                     .text('DISC', colX.disc, y, { width: 30, align: 'center' })
                     .text('HARGA NET', colX.net, y, { width: 60, align: 'right' })
                     .text('QTY', colX.qty, y, { width: 25, align: 'center' })
@@ -341,7 +332,8 @@ const generateDocumentPDF = (document) => {
                         if (matchingWindow && matchingWindow.items && matchingWindow.items.length > 0) {
                             matchingWindow.items.forEach((wItem) => {
                                 let displayName = wItem.name || '-';
-                                displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
+                                // Remove component title prefix like "Rel Vitrase:"
+                                displayName = displayName.replace(/^[^:]+:\s*/i, '');
                                 displayName = displayName.replace(/undefined/g, '-');
                                 allRows.push({
                                     name: displayName,
