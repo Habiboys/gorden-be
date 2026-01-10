@@ -190,28 +190,24 @@ const generateDocumentPDF = (document) => {
 
                     let groupTotal = 0;
 
-                    // Items
+                    // Items - Use pre-calculated values from frontend
                     items.forEach(item => {
                         const windowItem = docData.windows ? docData.windows.find(w => w.id === item.id) : null;
 
-                        const prices = windowItem ? {
-                            total: windowItem.subtotal,
-                            meters: parseFloat((windowItem.items[0]?.name || '').match(/\(([\d.]+)m\)/)?.[1] || '0'),
-                            unitPrice: windowItem.items[0]?.price || 0
-                        } : { total: 0, meters: 0, unitPrice: 0 };
-
-                        // Fallback calculation...
-                        if (prices.unitPrice === 0 && item.selectedVariant) {
-                            prices.unitPrice = item.selectedVariant.price || 0;
+                        // Use pre-calculated values from item/windowItem
+                        // Calculate vol from dimensions if not stored
+                        let vol = parseFloat(item.vol || item.meters || 0);
+                        if (vol === 0 && item.width && item.height) {
+                            // Calculate m² from cm dimensions
                             const widthM = item.width / 100;
                             const heightM = item.height / 100;
-                            prices.meters = widthM * (docData.calculatorTypeFromDB?.fabric_multiplier || 2.4) * heightM;
-                            // Recalculate total if needed 
-                            const itemPrice = prices.meters * prices.unitPrice * item.quantity;
-                            prices.total = itemPrice * (1 - (item.fabricDiscount || 0) / 100);
+                            const fabricMultiplier = docData.calculatorTypeFromDB?.fabric_multiplier || 2.4;
+                            vol = widthM * heightM * fabricMultiplier;
                         }
+                        const unitPrice = item.price_net || item.selectedVariant?.price || 0;
+                        const itemTotal = item.totalPrice || (windowItem?.subtotal) || 0;
 
-                        groupTotal += prices.total;
+                        groupTotal += itemTotal;
 
                         if (y > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
@@ -220,7 +216,6 @@ const generateDocumentPDF = (document) => {
                         displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
 
                         if (displayName === '-' || displayName.includes('undefined')) {
-                            // ... (Name Generation Logic same as before)
                             if (item.selectedVariant) {
                                 if (item.selectedVariant.name && !item.selectedVariant.name.includes('undefined')) {
                                     displayName = `${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} (${item.selectedVariant.name})`;
@@ -240,21 +235,20 @@ const generateDocumentPDF = (document) => {
                         // Render with Justify and Wide Column
                         const nameWidth = 200;
                         const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
-                        const rowHeight = Math.max(nameHeight, 10) + 4; // Reduced spacing from +10 to +4
+                        const rowHeight = Math.max(nameHeight, 10) + 4;
 
                         if (y + rowHeight > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                         doc.fontSize(6).font('Helvetica').fillColor(dark)
                             .text(displayName, bx.label, y, { width: nameWidth, align: 'justify' })
                             .text(`${item.width} x ${item.height}`, bx.size, y, { width: 55, align: 'center' })
-                            .text(prices.meters.toFixed(2), bx.vol, y, { width: 35, align: 'center' })
-                            .text(formatCurrency(prices.unitPrice), bx.price, y, { width: 50, align: 'right' })
+                            .text(vol.toFixed(2), bx.vol, y, { width: 35, align: 'center' })
+                            .text(formatCurrency(unitPrice), bx.price, y, { width: 50, align: 'right' })
                             .text(item.fabricDiscount ? `${item.fabricDiscount}%` : '-', bx.disc, y, { width: 30, align: 'center' })
                             .text((item.quantity).toString(), bx.qty, y, { width: 25, align: 'center' })
-                            .text(formatCurrency(prices.total), bx.total, y, { width: 75, align: 'right' });
+                            .text(formatCurrency(itemTotal), bx.total, y, { width: 75, align: 'right' });
 
                         y += rowHeight;
-                        // REMOVED: Per-item line (user requested: "ga usah kasi garis pembatas")
                     });
 
                     // Group Subtotal Footer
@@ -284,24 +278,24 @@ const generateDocumentPDF = (document) => {
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
                 y += 5;
 
-                // ADJUSTED COLUMNS: Spaced out to prevent overlapping and give more room to Name
+                // ADJUSTED COLUMNS: NAMA wider, other columns shifted right
                 const colX = {
                     name: 40,
-                    price: 260,  // Shifted right +10 to give Name more space
-                    disc: 320,   // Shifted right +10
-                    net: 360,    // Shifted right +10
-                    qty: 430,    // Kept same (already shifted right previously)
-                    total: 470
+                    price: 300,  // Shifted right for wider NAMA column
+                    disc: 355,   // Shifted right
+                    net: 400,    // Shifted right
+                    qty: 465,    // Shifted right
+                    total: 500   // Shifted right
                 };
 
                 // Single line below header only (removed double line)
                 doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                     .text('NAMA', colX.name, y)
-                    .text('HARGA', colX.price, y, { width: 50, align: 'right' })
-                    .text('DISC', colX.disc, y, { width: 30, align: 'center' })
-                    .text('HARGA NET', colX.net, y, { width: 60, align: 'right' })
+                    .text('HARGA', colX.price, y, { width: 45, align: 'right' })
+                    .text('DISC', colX.disc, y, { width: 35, align: 'center' })
+                    .text('HARGA NET', colX.net, y, { width: 55, align: 'right' })
                     .text('QTY', colX.qty, y, { width: 25, align: 'center' })
-                    .text('TOTAL', colX.total, y, { width: 85, align: 'right' });
+                    .text('TOTAL', colX.total, y, { width: 55, align: 'right' });
 
                 y += 12;
                 // Line BELOW column headers
@@ -330,11 +324,35 @@ const generateDocumentPDF = (document) => {
                         // ... (Data prep same as before)
                         const matchingWindow = docData.windows?.find(w => w.id === item.id);
                         if (matchingWindow && matchingWindow.items && matchingWindow.items.length > 0) {
-                            matchingWindow.items.forEach((wItem) => {
+                            matchingWindow.items.forEach((wItem, wIdx) => {
                                 let displayName = wItem.name || '-';
-                                // Remove component title prefix like "Rel Vitrase:"
-                                displayName = displayName.replace(/^[^:]+:\s*/i, '');
-                                displayName = displayName.replace(/undefined/g, '-');
+
+                                // Skip items that are just variant info (start with ( or only contain Lebar/Tinggi)
+                                if (displayName.match(/^\s*\([^)]+\)\s*$/) || displayName.match(/^\s*\(?(Lebar|Tinggi|Sibak)/i)) {
+                                    return; // Skip this item
+                                }
+
+                                // For first item (Gorden), use ONLY product name + variant (ignore wItem.name)
+                                if (wIdx === 0 && item.product?.name) {
+                                    let variantAttrs = '';
+                                    if (item.selectedVariant?.attributes) {
+                                        try {
+                                            const attrs = typeof item.selectedVariant.attributes === 'string'
+                                                ? JSON.parse(item.selectedVariant.attributes)
+                                                : item.selectedVariant.attributes;
+                                            if (attrs && Object.keys(attrs).length > 0) {
+                                                variantAttrs = ' (' + Object.entries(attrs).map(([k, v]) => `${k}: ${v}`).join(', ') + ')';
+                                            }
+                                        } catch (e) { }
+                                    }
+                                    displayName = `${item.product.name}${variantAttrs}`;
+                                } else {
+                                    // For other items (components), clean up the name
+                                    displayName = displayName.replace(/^[^:]+:\s*/i, '');
+                                    displayName = displayName.replace(/undefined/g, '-');
+                                    displayName = displayName.replace(/\s*\(\d+\.?\d*m\)\s*$/i, '');
+                                }
+
                                 allRows.push({
                                     name: displayName,
                                     priceGross: Math.round(wItem.price_gross || wItem.price || 0),
@@ -412,20 +430,20 @@ const generateDocumentPDF = (document) => {
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
 
-                            const nameWidth = 200; // Reduced for number prefix
-                            const numberedName = `#${rowIdx + 1} ${displayName}`;
-                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
-                            const rowHeight = Math.max(nameHeight, 10) + 4; // Reduced spacing from +10 to +4
+                            const nameWidth = 250; // Wider for longer product names
+                            const numberedName = `#${rowIdx + 1}   ${displayName}`; // Extra spaces after number
+                            const nameHeight = doc.heightOfString(numberedName, { width: nameWidth });
+                            const rowHeight = Math.max(nameHeight, 10) + 4;
 
                             if (y + rowHeight > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                             doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                .text(numberedName, colX.name, y, { width: nameWidth, align: 'left' })
-                                .text(formatCurrency(row.priceGross), colX.price, y, { width: 50, align: 'right' })
-                                .text(row.discount > 0 ? `${row.discount}%` : '-', colX.disc, y, { width: 30, align: 'center' })
-                                .text(formatCurrency(row.priceNet), colX.net, y, { width: 60, align: 'right' })
+                                .text(numberedName, colX.name, y, { width: nameWidth })
+                                .text(formatCurrency(row.priceGross), colX.price, y, { width: 45, align: 'right' })
+                                .text(row.discount > 0 ? `${row.discount}%` : '-', colX.disc, y, { width: 35, align: 'center' })
+                                .text(formatCurrency(row.priceNet), colX.net, y, { width: 55, align: 'right' })
                                 .text(row.qty.toString(), colX.qty, y, { width: 25, align: 'center' })
-                                .text(formatCurrency(row.total), colX.total, y, { width: 85, align: 'right' });
+                                .text(formatCurrency(row.total), colX.total, y, { width: 55, align: 'right' });
 
                             y += rowHeight;
                             // REMOVED: Per-item line (user requested removal)
