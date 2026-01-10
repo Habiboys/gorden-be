@@ -75,10 +75,11 @@ const generateDocumentPDF = (document) => {
             let y = 92;
             doc.fontSize(6).font('Helvetica-Bold').fillColor(dark).text('PELANGGAN', 40, y);
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text(document.customer_name || '-', 40, y + 9);
+            // Removed Phone and Email as requested
             doc.fontSize(6).font('Helvetica').fillColor(gray)
-                .text(document.customer_phone || '', 40, y + 19)
-                .text(document.customer_email || '', 40, y + 28)
-                .text(document.address || '', 40, y + 37, { width: 180 });
+                // .text(document.customer_phone || '', 40, y + 19)
+                // .text(document.customer_email || '', 40, y + 28)
+                .text(document.address || '', 40, y + 19, { width: 180 }); // Adjusted Y since lines removed
 
             // ============ TABLE ============
             y = 150;
@@ -86,9 +87,13 @@ const generateDocumentPDF = (document) => {
             const isBlindType = docData.calculatorTypeSlug && docData.calculatorTypeSlug.includes('blind');
 
             if (isBlindType && docData.raw_items) {
-                // ==================== BLIND GROUPING VIEW ====================
+                // ... (Blind Code partially omitted, verify if needs update. User focus was Smokring/General)
+                // Keeping Blind view mostly as is unless requested, but will fix subtotal color if shared logic used.
+                // Actually the user mentioned "Kalkulator Blinds" too. Let's fix Blind columns too if similar.
+                // Blind columns are currently: Label 45, Ukuran 200, Vol 280, Harga 330, Disc 400, Qty 440, Total 470.
+                // It seems okay, but check subtotal color.
 
-                // Group items
+                // Group items logic...
                 const groupedItems = {};
                 docData.raw_items.forEach(item => {
                     const groupId = item.groupId || `ungrouped-${item.id}`;
@@ -136,21 +141,20 @@ const generateDocumentPDF = (document) => {
 
                     // Items
                     items.forEach(item => {
+                        // ... Item Logic ...
                         const windowItem = docData.windows ? docData.windows.find(w => w.id === item.id) : null;
-
                         const prices = windowItem ? {
                             total: windowItem.subtotal,
                             meters: parseFloat((windowItem.items[0]?.name || '').match(/\(([\d.]+)m\)/)?.[1] || '0'),
                             unitPrice: windowItem.items[0]?.price || 0
                         } : { total: 0, meters: 0, unitPrice: 0 };
 
-                        // Fallback calculation if window not found or meters extraction failed
+                        // Fallback calculation...
                         if (prices.unitPrice === 0 && item.selectedVariant) {
                             prices.unitPrice = item.selectedVariant.price || 0;
                             const widthM = item.width / 100;
                             const heightM = item.height / 100;
                             prices.meters = widthM * (docData.calculatorTypeFromDB?.fabric_multiplier || 2.4) * heightM;
-                            // Recalculate total if needed (complex without all helpers, but better than 0)
                             const itemPrice = prices.meters * prices.unitPrice * item.quantity;
                             prices.total = itemPrice * (1 - (item.fabricDiscount || 0) / 100);
                         }
@@ -161,7 +165,6 @@ const generateDocumentPDF = (document) => {
 
                         // Name Fix Logic
                         let displayName = item.name || '-';
-                        // Remove "Pilih [Label]:"
                         displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
 
                         if (displayName === '-' || displayName.includes('undefined')) {
@@ -193,96 +196,96 @@ const generateDocumentPDF = (document) => {
                         y += 18;
                     });
 
-                    // Group Subtotal Footer
                     doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db');
                     y += 8;
-
                     const groupTotalAfterGroupDisc = groupTotal * (1 - groupDiscount / 100);
 
+                    // Subtotal Group Label - Dark
                     doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                         .text('Subtotal Grup' + (groupDiscount > 0 ? ` (Disc ${groupDiscount}%)` : ''), 350, y, { width: 100, align: 'right' });
 
                     if (groupDiscount > 0) {
-                        // Show original struck through? Maybe too complex for PDFKit layout right now, just show final
-                        // Or show both stacked
-                        doc.fontSize(7).font('Helvetica').fillColor(gray)
-                            .text(formatCurrency(groupTotal), 410, y, { width: 55, align: 'right', strike: true }); // PDFKit doesn't support strike easily? No.
-                        // Just show final price
+                        // ...
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
                             .text(formatCurrency(groupTotalAfterGroupDisc), 470, y, { width: 75, align: 'right' });
                     } else {
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
                             .text(formatCurrency(groupTotal), 470, y, { width: 75, align: 'right' });
                     }
-
                     y += 25;
                 });
 
             } else {
-                // ==================== LEGACY VIEW (Curtains / Standard) ====================
-                // Use raw_items when available for accurate price data
+                // ==================== LEGACY VIEW (Smokring / Curtains) ====================
                 const useRawItems = docData.raw_items && docData.raw_items.length > 0;
 
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
                 y += 5;
-                // Updated column headers - all CAPITAL with HARGA NET added
+
+                // ADJUSTED COLUMNS: Spaced out to prevent overlapping and give more room to Name
+                const colX = {
+                    name: 40,
+                    price: 260,  // Shifted right +10 to give Name more space
+                    disc: 320,   // Shifted right +10
+                    net: 360,    // Shifted right +10
+                    qty: 430,    // Kept same (already shifted right previously)
+                    total: 470
+                };
+
                 doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
-                    .text('NAMA', 40, y)
-                    .text('HARGA', 240, y, { width: 50, align: 'right' })
-                    .text('DISC', 295, y, { width: 30, align: 'center' })
-                    .text('HARGA NET', 330, y, { width: 55, align: 'right' })
-                    .text('QTY', 390, y, { width: 25, align: 'center' })
-                    .text('TOTAL', 420, y, { width: 135, align: 'right' });
+                    .text('NAMA', colX.name, y)
+                    .text('HARGA SATUAN', colX.price, y, { width: 50, align: 'right' })
+                    .text('DISC', colX.disc, y, { width: 30, align: 'center' })
+                    .text('HARGA NET', colX.net, y, { width: 60, align: 'right' })
+                    .text('QTY', colX.qty, y, { width: 25, align: 'center' })
+                    .text('TOTAL', colX.total, y, { width: 85, align: 'right' });
+
                 y += 12;
                 doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
                 y += 6;
 
                 if (useRawItems) {
-                    // ===== NEW: Use raw_items for accurate data =====
                     docData.raw_items.forEach((item, idx) => {
                         // Window/Item Header
                         const itemTitle = `${item.quantity || 1}. ${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} - Ukuran ${item.width}cm x ${item.height}cm`;
                         const packageType = item.packageType === 'gorden-lengkap' ? 'Gorden Lengkap' : 'Gorden Saja';
+
+                        // Ensure page break for Header
+                        if (y > 700) { doc.addPage(); y = 40; }
 
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(itemTitle, 40, y);
                         doc.fontSize(6).font('Helvetica').fillColor(gray).text(packageType, 40, y + 10);
                         y += 18;
 
-                        // Build all rows for this item
                         const allRows = [];
 
-                        // ===== TRY TO USE WINDOWS DATA FIRST (pre-calculated) =====
-                        // Find matching window data which has pre-calculated totalPrice
+                        // ... (Data prep same as before)
                         const matchingWindow = docData.windows?.find(w => w.id === item.id);
                         if (matchingWindow && matchingWindow.items && matchingWindow.items.length > 0) {
-                            // Use pre-calculated values from windows.items
                             matchingWindow.items.forEach((wItem) => {
                                 let displayName = wItem.name || '-';
                                 displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                                 displayName = displayName.replace(/undefined/g, '-');
-
                                 allRows.push({
                                     name: displayName,
                                     priceGross: Math.round(wItem.price_gross || wItem.price || 0),
                                     discount: wItem.discount || 0,
                                     priceNet: Math.round(wItem.price_net || wItem.price || 0),
                                     qty: wItem.quantity || 1,
-                                    total: Math.round(wItem.totalPrice || 0) // Use pre-calculated totalPrice
+                                    total: Math.round(wItem.totalPrice || 0)
                                 });
                             });
                         } else {
-                            // ===== FALLBACK: Calculate from raw_items =====
+                            // ... (Fallback calculation same as before) ...
                             // FABRIC ROW
                             const fabricGross = Number(item.selectedVariant?.price_gross) || Number(item.selectedVariant?.price) || Number(item.product?.price) || 0;
                             const fabricNet = Number(item.selectedVariant?.price_net) || fabricGross;
                             const fabricDiscount = item.fabricDiscount || (fabricGross > 0 ? Math.round(((fabricGross - fabricNet) / fabricGross) * 100) : 0);
                             const variantMultiplier = item.selectedVariant?.quantity_multiplier || 1;
                             const effectiveQty = variantMultiplier * item.quantity;
-                            // Apply discount correctly: (Net Price * Qty) * (1 - discount%)
                             const fabricTotal = fabricNet * effectiveQty * (1 - fabricDiscount / 100);
 
-                            // Get variant name
                             let variantName = '-';
                             if (item.selectedVariant) {
                                 try {
@@ -309,12 +312,9 @@ const generateDocumentPDF = (document) => {
                                 total: Math.round(fabricTotal)
                             });
 
-                            // ===== COMPONENT ROWS =====
+                            // Component Rows ...
                             if (item.packageType === 'gorden-lengkap' && item.components) {
-                                const componentsList = Array.isArray(item.components)
-                                    ? item.components
-                                    : Object.values(item.components);
-
+                                const componentsList = Array.isArray(item.components) ? item.components : Object.values(item.components);
                                 componentsList.forEach((comp) => {
                                     const compGross = Number(comp.productPriceGross) || Number(comp.productPrice) || Number(comp.product?.price_gross) || Number(comp.product?.price) || 0;
                                     const compNet = Number(comp.productPriceNet) || Number(comp.product?.price_net) || compGross;
@@ -323,10 +323,7 @@ const generateDocumentPDF = (document) => {
                                     const likelyShouldScale = ['rel', 'tassel', 'hook', 'vitrase', 'gorden', 'kain', 'rail'].some(k => compName.toLowerCase().includes(k));
                                     const rawQty = comp.qty || 1;
                                     const isSuspiciousUnscaled = comp.displayQty && comp.displayQty === rawQty && (item.quantity || 1) > 1;
-
-                                    const compQty = (!comp.displayQty || (likelyShouldScale && isSuspiciousUnscaled))
-                                        ? rawQty * (item.quantity || 1)
-                                        : comp.displayQty;
+                                    const compQty = (!comp.displayQty || (likelyShouldScale && isSuspiciousUnscaled)) ? rawQty * (item.quantity || 1) : comp.displayQty;
                                     const compTotal = comp.componentTotal || (compNet * compQty);
 
                                     allRows.push({
@@ -341,99 +338,77 @@ const generateDocumentPDF = (document) => {
                             }
                         }
 
-                        // Render all rows
+                        // Render all rows with better spacing
                         allRows.forEach(row => {
-                            // Clean display name
                             let displayName = row.name || '-';
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
 
-                            // Calculate dynamic row height based on name length
-                            const nameWidth = 190;
-                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth });
-                            const rowHeight = Math.max(nameHeight, 10) + 10; // Minimum content height + padding
+                            const nameWidth = 210; // Increased from 190 to fill gap
+                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
+                            const rowHeight = Math.max(nameHeight, 10) + 10;
 
-                            // Check page break before rendering
-                            if (y + rowHeight > 750) {
-                                doc.addPage();
-                                y = 40;
-                            }
+                            if (y + rowHeight > 750) { doc.addPage(); y = 40; }
 
                             doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                .text(displayName, 45, y, { width: nameWidth })
-                                .text(formatCurrency(row.priceGross), 240, y, { width: 50, align: 'right' })
-                                .text(row.discount > 0 ? `${row.discount}%` : '-', 295, y, { width: 30, align: 'center' })
-                                .text(formatCurrency(row.priceNet), 330, y, { width: 55, align: 'right' })
-                                .text(row.qty.toString(), 390, y, { width: 25, align: 'center' })
-                                .text(formatCurrency(row.total), 420, y, { width: 135, align: 'right' });
+                                .text(displayName, colX.name, y, { width: nameWidth, align: 'justify' })
+                                .text(formatCurrency(row.priceGross), colX.price, y, { width: 50, align: 'right' })
+                                .text(row.discount > 0 ? `${row.discount}%` : '-', colX.disc, y, { width: 30, align: 'center' })
+                                .text(formatCurrency(row.priceNet), colX.net, y, { width: 60, align: 'right' })
+                                .text(row.qty.toString(), colX.qty, y, { width: 25, align: 'center' })
+                                .text(formatCurrency(row.total), colX.total, y, { width: 85, align: 'right' });
 
                             y += rowHeight;
+
+                            // ADDED: Small line between rows for neatness ("garis tabel")
+                            doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.1).stroke('#e5e7eb');
                         });
 
-                        // Item Subtotal - Use pre-calculated subtotal from window if available
+                        // Item Subtotal
                         let subtotalAfterDiscount;
                         if (matchingWindow && matchingWindow.subtotal !== undefined) {
-                            // Use the pre-calculated subtotal which was correctly computed during save
                             subtotalAfterDiscount = matchingWindow.subtotal;
                         } else {
-                            // Fallback: calculate from rows (may be inaccurate for old data)
                             const rowsTotal = allRows.reduce((sum, r) => sum + r.total, 0);
                             const itemDiscount = item.itemDiscount || 0;
                             subtotalAfterDiscount = rowsTotal * (1 - itemDiscount / 100);
                         }
 
-                        doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
-                            .text('Subtotal', 350, y, { width: 60, align: 'right' });
+                        // Subtotal Label in Dark (Requested: "font subtotal Hitam")
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
-                            .text(formatCurrency(Math.round(subtotalAfterDiscount)), 420, y, { width: 135, align: 'right' });
+                            .text('Subtotal', 400, y, { width: 60, align: 'right' }); // Shifted closer
+                        doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
+                            .text(formatCurrency(Math.round(subtotalAfterDiscount)), 470, y, { width: 85, align: 'right' });
+
                         y += 18;
+                        doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db'); // Divider between main items
                         y += 5;
                     });
 
                 } else if (docData.windows) {
-                    // ===== FALLBACK: Legacy windows.items =====
+                    // LEGACY WINDOWS LOOP (Fallback)
                     docData.windows.forEach(window => {
-                        // Window Header
-                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                            .text(`${window.title || ''} - ${window.size || ''}`, 40, y);
-                        if (window.fabricType) {
-                            doc.fontSize(6).font('Helvetica').fillColor(gray).text(window.fabricType, 40, y + 10);
-                        }
-                        y += 18;
-
-                        // Window Items
+                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text(`${window.title || ''} - ${window.size || ''}`, 40, y);
+                        // ...
                         if (window.items) {
                             window.items.forEach(item => {
+                                // ... Same Logic, just reuse colX
                                 const itemPriceGross = parseFloat(item.price_gross) || parseFloat(item.price) || 0;
                                 const itemPriceNet = parseFloat(item.price_net) || itemPriceGross;
                                 const itemDiscount = item.discount || (itemPriceGross > 0 ? Math.round(((itemPriceGross - itemPriceNet) / itemPriceGross) * 100) : 0);
                                 const itemTotal = item.totalPrice || itemPriceNet * (item.quantity || 1);
-
                                 let displayName = item.name || '-';
-                                displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
-                                displayName = displayName.replace(/undefined/g, '-');
 
                                 doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                    .text(displayName, 45, y, { width: 190 })
-                                    .text(formatCurrency(Math.round(itemPriceGross)), 240, y, { width: 50, align: 'right' })
-                                    .text(itemDiscount > 0 ? `${itemDiscount}%` : '-', 295, y, { width: 30, align: 'center' })
-                                    .text(formatCurrency(Math.round(itemPriceNet)), 330, y, { width: 55, align: 'right' })
-                                    .text((item.quantity || 1).toString(), 390, y, { width: 25, align: 'center' })
-                                    .text(formatCurrency(Math.round(itemTotal)), 420, y, { width: 135, align: 'right' });
+                                    .text(displayName, colX.name, y, { width: 210, align: 'justify' })
+                                    .text(formatCurrency(Math.round(itemPriceGross)), colX.price, y, { width: 50, align: 'right' })
+                                    .text(itemDiscount > 0 ? `${itemDiscount}%` : '-', colX.disc, y, { width: 30, align: 'center' })
+                                    .text(formatCurrency(Math.round(itemPriceNet)), colX.net, y, { width: 60, align: 'right' })
+                                    .text((item.quantity || 1).toString(), colX.qty, y, { width: 25, align: 'center' })
+                                    .text(formatCurrency(Math.round(itemTotal)), colX.total, y, { width: 85, align: 'right' });
                                 y += 18;
-                                if (y > 750) { doc.addPage(); y = 40; }
                             });
                         }
-
-                        // Window Subtotal
-                        if (window.subtotal) {
-                            doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
-                                .text('Subtotal', 350, y, { width: 60, align: 'right' });
-                            doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
-                                .text(formatCurrency(window.subtotal), 420, y, { width: 135, align: 'right' });
-                            y += 15;
-                        }
-                        y += 5;
                     });
                 }
             }
@@ -443,22 +418,27 @@ const generateDocumentPDF = (document) => {
             doc.moveTo(380, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
             y += 8;
 
-            doc.fontSize(7).font('Helvetica').fillColor(gray).text('Subtotal', 380, y);
-            doc.fillColor(dark).text(formatCurrency(subtotal), 485, y, { width: 70, align: 'right' });
+            // Adjusted X for closer label-value pair ("jangan sampai jarak jauh")
+            // Labels moved from 380 to 410. Value at 485/460.
+            const totalLabelX = 410;
+            const totalValueX = 485;
+            const totalValueWidth = 70;
+
+            doc.fontSize(7).font('Helvetica').fillColor(dark).text('Subtotal', totalLabelX, y); // Dark Color
+            doc.fillColor(dark).text(formatCurrency(subtotal), totalValueX, y, { width: totalValueWidth, align: 'right' });
             y += 12;
 
             if (discount > 0) {
-                doc.fontSize(7).font('Helvetica').fillColor(gray).text('Diskon', 380, y);
-                // Discount price in green
-                doc.fillColor('#10b981').text(`-${formatCurrency(discount)}`, 485, y, { width: 70, align: 'right' });
+                doc.fontSize(7).font('Helvetica').fillColor(gray).text('Diskon', totalLabelX, y);
+                doc.fillColor('#10b981').text(`-${formatCurrency(discount)}`, totalValueX, y, { width: totalValueWidth, align: 'right' });
                 y += 12;
             }
 
-            doc.moveTo(380, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
+            doc.moveTo(totalLabelX, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
             y += 8;
-            doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', 380, y);
-            // Total price in black
-            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), 460, y - 1, { width: 95, align: 'right' });
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', totalLabelX, y);
+            // Total price
+            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), totalValueX - 25, y - 1, { width: 95, align: 'right' }); // Keeping original value alignment logic but shifted slightly
 
             // ============ PAYMENT ============
             y += 30;

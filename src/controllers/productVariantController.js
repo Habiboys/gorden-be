@@ -5,10 +5,21 @@ exports.getByProduct = async (req, res) => {
     try {
         const { productId } = req.params;
 
+        console.log('📥 [getByProduct] Received productId:', productId);
+
         const variants = await ProductVariant.findAll({
             where: { product_id: productId, is_active: true },
             order: [['created_at', 'ASC']]
         });
+
+        console.log('📦 [getByProduct] Found variants count:', variants.length);
+        if (variants.length === 0) {
+            // Also check without is_active filter to see total variants
+            const allVariants = await ProductVariant.findAll({
+                where: { product_id: productId }
+            });
+            console.log('📦 [getByProduct] Total variants (including inactive):', allVariants.length);
+        }
 
         res.json({
             success: true,
