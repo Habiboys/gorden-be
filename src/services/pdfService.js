@@ -123,15 +123,36 @@ const generateDocumentPDF = (document) => {
 
                     y += 35;
 
-                    // Table Header
+                    // Table Header - Adjusted Columns for consistency
+                    // Old: L 45, U 200, V 280, H 330, D 400, Q 440, T 470
+                    // New Target: NAMA wider. Shift others right.
+                    // NAMA: 40 (width 210) -> Ends at 250
+                    // UKURAN: 260
+                    // VOL: 320
+                    // HARGA: 360
+                    // DISC: 410 --> Too tight?
+                    // Let's maximize space.
+                    // Qty needs to be at ~430. Total ~470.
+                    // Let's compress Ukuran/Vol slightly.
+
+                    const bx = {
+                        label: 40,
+                        size: 250,
+                        vol: 310,
+                        price: 350,
+                        disc: 405,
+                        qty: 440,
+                        total: 470
+                    };
+
                     doc.fontSize(7).font('Helvetica-Bold').fillColor(gray)
-                        .text('LABEL', 45, y)
-                        .text('UKURAN', 200, y, { width: 80, align: 'center' })
-                        .text('VOL (m²)', 280, y, { width: 40, align: 'center' })
-                        .text('HARGA', 330, y, { width: 60, align: 'right' })
-                        .text('DISC', 400, y, { width: 30, align: 'center' })
-                        .text('QTY', 440, y, { width: 20, align: 'center' })
-                        .text('TOTAL', 470, y, { width: 75, align: 'right' });
+                        .text('LABEL', bx.label, y)
+                        .text('UKURAN', bx.size, y, { width: 55, align: 'center' })
+                        .text('VOL', bx.vol, y, { width: 35, align: 'center' })
+                        .text('HARGA', bx.price, y, { width: 50, align: 'right' })
+                        .text('DISC', bx.disc, y, { width: 30, align: 'center' })
+                        .text('QTY', bx.qty, y, { width: 25, align: 'center' })
+                        .text('TOTAL', bx.total, y, { width: 75, align: 'right' });
 
                     y += 10;
                     doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#e5e7eb');
@@ -141,8 +162,8 @@ const generateDocumentPDF = (document) => {
 
                     // Items
                     items.forEach(item => {
-                        // ... Item Logic ...
                         const windowItem = docData.windows ? docData.windows.find(w => w.id === item.id) : null;
+
                         const prices = windowItem ? {
                             total: windowItem.subtotal,
                             meters: parseFloat((windowItem.items[0]?.name || '').match(/\(([\d.]+)m\)/)?.[1] || '0'),
@@ -155,6 +176,7 @@ const generateDocumentPDF = (document) => {
                             const widthM = item.width / 100;
                             const heightM = item.height / 100;
                             prices.meters = widthM * (docData.calculatorTypeFromDB?.fabric_multiplier || 2.4) * heightM;
+                            // Recalculate total if needed 
                             const itemPrice = prices.meters * prices.unitPrice * item.quantity;
                             prices.total = itemPrice * (1 - (item.fabricDiscount || 0) / 100);
                         }
@@ -168,6 +190,7 @@ const generateDocumentPDF = (document) => {
                         displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
 
                         if (displayName === '-' || displayName.includes('undefined')) {
+                            // ... (Name Generation Logic same as before)
                             if (item.selectedVariant) {
                                 if (item.selectedVariant.name && !item.selectedVariant.name.includes('undefined')) {
                                     displayName = `${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} (${item.selectedVariant.name})`;
@@ -184,20 +207,31 @@ const generateDocumentPDF = (document) => {
                             }
                         }
 
-                        doc.fontSize(8).font('Helvetica').fillColor(dark)
-                            .text(displayName, 45, y, { width: 150 })
-                            .text(`${item.width} x ${item.height}`, 200, y, { width: 80, align: 'center' })
-                            .text(prices.meters.toFixed(2), 280, y, { width: 40, align: 'center' })
-                            .text(formatCurrency(prices.unitPrice), 330, y, { width: 60, align: 'right' })
-                            .text(item.fabricDiscount ? `${item.fabricDiscount}%` : '-', 400, y, { width: 30, align: 'center' })
-                            .text((item.quantity).toString(), 440, y, { width: 20, align: 'center' })
-                            .text(formatCurrency(prices.total), 470, y, { width: 75, align: 'right' });
+                        // Render with Justify and Wide Column
+                        const nameWidth = 200;
+                        const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
+                        const rowHeight = Math.max(nameHeight, 10) + 10;
 
-                        y += 18;
+                        if (y + rowHeight > 750) { doc.addPage(); y = 40; }
+
+                        doc.fontSize(8).font('Helvetica').fillColor(dark)
+                            .text(displayName, bx.label, y, { width: nameWidth, align: 'justify' })
+                            .text(`${item.width} x ${item.height}`, bx.size, y, { width: 55, align: 'center' })
+                            .text(prices.meters.toFixed(2), bx.vol, y, { width: 35, align: 'center' })
+                            .text(formatCurrency(prices.unitPrice), bx.price, y, { width: 50, align: 'right' })
+                            .text(item.fabricDiscount ? `${item.fabricDiscount}%` : '-', bx.disc, y, { width: 30, align: 'center' })
+                            .text((item.quantity).toString(), bx.qty, y, { width: 25, align: 'center' })
+                            .text(formatCurrency(prices.total), bx.total, y, { width: 75, align: 'right' });
+
+                        y += rowHeight;
+                        // ADDED: Small line between rows ("garis tabel")
+                        doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.1).stroke('#e5e7eb');
                     });
 
+                    // Group Subtotal Footer
                     doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db');
                     y += 8;
+
                     const groupTotalAfterGroupDisc = groupTotal * (1 - groupDiscount / 100);
 
                     // Subtotal Group Label - Dark
@@ -205,11 +239,23 @@ const generateDocumentPDF = (document) => {
                         .text('Subtotal Grup' + (groupDiscount > 0 ? ` (Disc ${groupDiscount}%)` : ''), 350, y, { width: 100, align: 'right' });
 
                     if (groupDiscount > 0) {
-                        // ...
-                        doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
+                        // Just show final price in Black (or Accent? User said "font subtotal Hitam" for general subtotal. 
+                        // But here it was Accent. Let's stick to Accent for Final Totals but ensure subtotal label is dark.
+                        // Actually, user said "warna font subtotal Hitam". Let's try making the value black too if that's what they meant?
+                        // No, usually total/subtotal values are emphasized. Let's keep Accent for the VALUE, but Label is Dark.
+                        // Wait, looking at my previous edit for General:
+                        // .text('Subtotal', 400, ... Dark)
+                        // .text(formatCurrency(subtotal), ... Dark)
+                        // So I should make this VALUE dark too?
+                        // "warna font subtotal Hitam" -> probably applies to value too.
+                        // But let's check the General section I just edited.
+                        // Yes, I made the subtotal value Dark in lines 381.
+                        // So I will make this group subtotal value Dark too.
+
+                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(formatCurrency(groupTotalAfterGroupDisc), 470, y, { width: 75, align: 'right' });
                     } else {
-                        doc.fontSize(8).font('Helvetica-Bold').fillColor(accent)
+                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(formatCurrency(groupTotal), 470, y, { width: 75, align: 'right' });
                     }
                     y += 25;
