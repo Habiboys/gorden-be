@@ -18,6 +18,39 @@ const generateDocumentPDF = (document) => {
 
             doc.addPage(); // Add first page specifically
 
+            // ============ WATERMARK (logo on every page) ============
+            const addWatermark = () => {
+                const wmLogoPath = path.join(__dirname, '../assets/logo.png');
+                if (fs.existsSync(wmLogoPath)) {
+                    doc.save();
+                    doc.opacity(0.08); // Very faint
+                    doc.image(wmLogoPath, 150, 300, { width: 300 }); // Centered, large
+                    doc.restore();
+                    doc.opacity(1); // Reset opacity
+                }
+            };
+
+            // ============ PAGE HEADER (on every page) ============
+            const logoPath = path.join(__dirname, '../assets/logo.png');
+            const isInvoice = document.type === 'INVOICE';
+            const addPageHeader = () => {
+                if (fs.existsSync(logoPath)) {
+                    doc.image(logoPath, 40, 25, { height: 40 });
+                    doc.fontSize(6).font('Helvetica').fillColor('#6b7280').text('Toko Gorden dan Blind Berkualitas', 40, 70);
+                } else {
+                    doc.fontSize(14).font('Helvetica-Bold').fillColor('#111827').text('AMAGRIYA', 40, 35);
+                    doc.fontSize(6).font('Helvetica').fillColor('#6b7280').text('Toko Gorden dan Blind Berkualitas', 40, 52);
+                }
+                doc.fontSize(12).font('Helvetica-Bold').fillColor('#111827')
+                    .text(isInvoice ? 'INVOICE' : 'PENAWARAN', 350, 35, { width: 205, align: 'right' });
+                doc.fontSize(7).font('Helvetica').fillColor('#6b7280')
+                    .text(document.document_number, 350, 50, { width: 205, align: 'right' });
+                doc.moveTo(40, 82).lineTo(555, 82).lineWidth(0.5).stroke('#e5e7eb');
+            };
+
+            addWatermark(); // Add watermark to first page
+            addPageHeader(); // Add header to first page
+
             const buffers = [];
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
@@ -48,32 +81,7 @@ const generateDocumentPDF = (document) => {
             if (total === 0 && calc > 0) total = calc - discount;
             const subtotal = total + discount;
 
-            const isInvoice = document.type === 'INVOICE';
-
-            // ============ HEADER ============
-            // Logo (if exists)
-            const logoPath = path.join(__dirname, '../assets/logo.png');
-            if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, 40, 25, { height: 40 });
-                // Text next to logo
-                // doc.fontSize(14).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 90, 30);
-                doc.fontSize(6).font('Helvetica').fillColor(gray).text('Toko Gorden dan Blind Berkualitas', 40, 70);
-            } else {
-                // Fallback: text only
-                doc.fontSize(14).font('Helvetica-Bold').fillColor(dark).text('AMAGRIYA', 40, 35);
-                doc.fontSize(6).font('Helvetica').fillColor(gray).text('Toko Gorden dan Blind Berkualitas', 40, 52);
-            }
-
-            // Document type in black
-            doc.fontSize(12).font('Helvetica-Bold').fillColor(dark)
-                .text(isInvoice ? 'INVOICE' : 'PENAWARAN', 350, 35, { width: 205, align: 'right' });
-            // Document number below, then date
-            doc.fontSize(7).font('Helvetica').fillColor(gray)
-                .text(document.document_number, 350, 50, { width: 205, align: 'right' });
-            doc.fontSize(7).font('Helvetica').fillColor(dark)
-                .text(formatDate(document.created_at || document.createdAt), 350, 60, { width: 205, align: 'right' });
-
-            doc.moveTo(40, 82).lineTo(555, 82).lineWidth(0.5).stroke('#e5e7eb');
+            // Header already added by addPageHeader() function above
 
             // ============ INFO ============
             let y = 92;
@@ -111,16 +119,17 @@ const generateDocumentPDF = (document) => {
                     const groupDiscount = firstItem.groupDiscount || 0;
 
                     // Group Header
-                    if (y > 780) { doc.addPage(); y = 40; }
+                    if (y > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                     // Product Header (Minimalist - Box Removed)
                     // doc.rect(40, y, 515, 25).fill('#f9fafb'); 
                     // doc.rect(40, y, 515, 25).stroke('#e5e7eb');
 
-                    // Product Name & Price - Minimalist Style
-                    // Name: 8pt Bold Dark (was 9pt)
+                    // Product Name & Variant - Minimalist Style
+                    const variantName = firstItem.selectedVariant?.name || '';
+                    const productWithVariant = variantName ? `${product?.name || 'Produk Custom'} - ${variantName}` : (product?.name || 'Produk Custom');
                     doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                        .text(product?.name || 'Produk Custom', 40, y);
+                        .text(productWithVariant, 40, y);
 
                     // Price: 7pt Gray (was 9pt Accent)
                     const priceText = product?.price ? formatCurrency(product.price) + '/m' : '';
@@ -193,7 +202,7 @@ const generateDocumentPDF = (document) => {
 
                         groupTotal += prices.total;
 
-                        if (y > 780) { doc.addPage(); y = 40; }
+                        if (y > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                         // Name Fix Logic
                         let displayName = item.name || '-';
@@ -222,7 +231,7 @@ const generateDocumentPDF = (document) => {
                         const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                         const rowHeight = Math.max(nameHeight, 10) + 4; // Reduced spacing from +10 to +4
 
-                        if (y + rowHeight > 780) { doc.addPage(); y = 40; }
+                        if (y + rowHeight > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                         doc.fontSize(6).font('Helvetica').fillColor(dark)
                             .text(displayName, bx.label, y, { width: nameWidth, align: 'justify' })
@@ -291,11 +300,11 @@ const generateDocumentPDF = (document) => {
                 if (useRawItems) {
                     docData.raw_items.forEach((item, idx) => {
                         // Window/Item Header
-                        const itemTitle = `${item.quantity || 1}. ${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} - Ukuran ${item.width}cm x ${item.height}cm`;
+                        const itemTitle = `${item.quantity || 1} ${item.itemType === 'jendela' ? 'Jendela' : 'Pintu'} - Ukuran ${item.width}cm x ${item.height}cm`;
                         const packageType = item.packageType === 'gorden-lengkap' ? 'Gorden Lengkap' : 'Gorden Saja';
 
                         // Ensure page break for Header
-                        if (y > 780) { doc.addPage(); y = 40; }
+                        if (y > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(itemTitle, 40, y);
@@ -385,20 +394,21 @@ const generateDocumentPDF = (document) => {
                             }
                         }
 
-                        // Render all rows with better spacing
-                        allRows.forEach(row => {
+                        // Render all rows with numbering (#1, #2, etc)
+                        allRows.forEach((row, rowIdx) => {
                             let displayName = row.name || '-';
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
 
-                            const nameWidth = 210; // Increased from 190 to fill gap
+                            const nameWidth = 200; // Reduced for number prefix
+                            const numberedName = `#${rowIdx + 1} ${displayName}`;
                             const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                             const rowHeight = Math.max(nameHeight, 10) + 4; // Reduced spacing from +10 to +4
 
-                            if (y + rowHeight > 780) { doc.addPage(); y = 40; }
+                            if (y + rowHeight > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                             doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                .text(displayName, colX.name, y, { width: nameWidth, align: 'justify' })
+                                .text(numberedName, colX.name, y, { width: nameWidth, align: 'left' })
                                 .text(formatCurrency(row.priceGross), colX.price, y, { width: 50, align: 'right' })
                                 .text(row.discount > 0 ? `${row.discount}%` : '-', colX.disc, y, { width: 30, align: 'center' })
                                 .text(formatCurrency(row.priceNet), colX.net, y, { width: 60, align: 'right' })
@@ -467,8 +477,8 @@ const generateDocumentPDF = (document) => {
             // Calculate required space for ALL footer content (~120px)
             const footerHeight = 120;
             if (y + footerHeight > 800) {
-                doc.addPage();
-                y = 40;
+                doc.addPage(); addWatermark(); addPageHeader();
+                y = 92;
             }
 
             // --- TOTALS SECTION ---

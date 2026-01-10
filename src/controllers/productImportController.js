@@ -32,7 +32,8 @@ const downloadProductTemplate = async (req, res) => {
             { header: 'sku', key: 'sku', width: 20 },
             { header: 'category_name', key: 'category_name', width: 20 },
             { header: 'subcategory_name', key: 'subcategory_name', width: 25 },
-            { header: 'description', key: 'description', width: 45 },
+            { header: 'deskripsi_singkat', key: 'deskripsi_singkat', width: 35 },
+            { header: 'deskripsi_lengkap', key: 'deskripsi_lengkap', width: 50 },
             { header: 'status', key: 'status', width: 12 },
         ];
 
@@ -50,7 +51,8 @@ const downloadProductTemplate = async (req, res) => {
             sku: 'PRD-001',
             category_name: categoryNames[0] || '',
             subcategory_name: subcategoryNames[0] || '',
-            description: 'Deskripsi produk contoh',
+            deskripsi_singkat: 'Deskripsi singkat produk',
+            deskripsi_lengkap: 'Deskripsi lengkap produk contoh dengan detail lebih banyak',
             status: 'ACTIVE'
         });
         worksheet.addRow({
@@ -58,7 +60,8 @@ const downloadProductTemplate = async (req, res) => {
             sku: 'PRD-002',
             category_name: categoryNames.length > 1 ? categoryNames[1] : categoryNames[0] || '',
             subcategory_name: subcategoryNames.length > 1 ? subcategoryNames[1] : '',
-            description: 'Deskripsi produk contoh kedua',
+            deskripsi_singkat: 'Deskripsi singkat produk kedua',
+            deskripsi_lengkap: 'Deskripsi lengkap produk contoh kedua',
             status: 'ACTIVE'
         });
 
@@ -298,7 +301,8 @@ const importProducts = async (req, res) => {
                     sku: formattedSku,
                     category_id: categoryId || null,
                     subcategory_id: subcategoryId || null,
-                    description: row.description || null,
+                    description: row.deskripsi_lengkap || null,
+                    subtitle: row.deskripsi_singkat || null,
                     status: row.status || 'ACTIVE'
                 });
 
