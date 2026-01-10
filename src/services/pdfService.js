@@ -11,8 +11,12 @@ const generateDocumentPDF = (document) => {
             const doc = new PDFDocument({
                 size: 'A4',
                 margin: 40,
-                bufferPages: true
+                bufferPages: true,
+                autoFirstPage: false, // We will add page manually
+                autoAddPage: false // CRITICAL: Disable auto-add to prevent double-paging conflict with our manual checks
             });
+
+            doc.addPage(); // Add first page specifically
 
             const buffers = [];
             doc.on('data', buffers.push.bind(buffers));
