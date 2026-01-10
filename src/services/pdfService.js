@@ -109,19 +109,21 @@ const generateDocumentPDF = (document) => {
                     // Group Header
                     if (y > 700) { doc.addPage(); y = 40; }
 
-                    // Product Header Box
-                    doc.rect(40, y, 515, 25).fill('#f9fafb'); // Light gray bg
-                    doc.rect(40, y, 515, 25).stroke('#e5e7eb');
+                    // Product Header (Minimalist - Box Removed)
+                    // doc.rect(40, y, 515, 25).fill('#f9fafb'); 
+                    // doc.rect(40, y, 515, 25).stroke('#e5e7eb');
 
-                    // Product Name & Price
-                    doc.fontSize(9).font('Helvetica-Bold').fillColor(dark)
-                        .text(product?.name || 'Produk Custom', 50, y + 8);
+                    // Product Name & Price - Minimalist Style
+                    // Name: 8pt Bold Dark (was 9pt)
+                    doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
+                        .text(product?.name || 'Produk Custom', 40, y);
 
+                    // Price: 7pt Gray (was 9pt Accent)
                     const priceText = product?.price ? formatCurrency(product.price) + '/m' : '';
-                    doc.fontSize(9).font('Helvetica-Bold').fillColor(accent)
-                        .text(priceText, 40, y + 8, { width: 505, align: 'right' });
+                    doc.fontSize(7).font('Helvetica').fillColor(gray)
+                        .text(priceText, 40, y + 10); // Standard layout
 
-                    y += 35;
+                    y += 20; // Reduced spacing (was 35)
 
                     // Table Header - Adjusted Columns for consistency
                     // Old: L 45, U 200, V 280, H 330, D 400, Q 440, T 470
@@ -145,8 +147,8 @@ const generateDocumentPDF = (document) => {
                         total: 470
                     };
 
-                    doc.fontSize(7).font('Helvetica-Bold').fillColor(gray)
-                        .text('LABEL', bx.label, y)
+                    doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
+                        .text('NAMA', bx.label, y)
                         .text('UKURAN', bx.size, y, { width: 55, align: 'center' })
                         .text('VOL', bx.vol, y, { width: 35, align: 'center' })
                         .text('HARGA', bx.price, y, { width: 50, align: 'right' })
@@ -214,7 +216,7 @@ const generateDocumentPDF = (document) => {
 
                         if (y + rowHeight > 750) { doc.addPage(); y = 40; }
 
-                        doc.fontSize(8).font('Helvetica').fillColor(dark)
+                        doc.fontSize(6).font('Helvetica').fillColor(dark)
                             .text(displayName, bx.label, y, { width: nameWidth, align: 'justify' })
                             .text(`${item.width} x ${item.height}`, bx.size, y, { width: 55, align: 'center' })
                             .text(prices.meters.toFixed(2), bx.vol, y, { width: 35, align: 'center' })
@@ -235,27 +237,14 @@ const generateDocumentPDF = (document) => {
                     const groupTotalAfterGroupDisc = groupTotal * (1 - groupDiscount / 100);
 
                     // Subtotal Group Label - Dark
-                    doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
+                    doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
                         .text('Subtotal Grup' + (groupDiscount > 0 ? ` (Disc ${groupDiscount}%)` : ''), 350, y, { width: 100, align: 'right' });
 
                     if (groupDiscount > 0) {
-                        // Just show final price in Black (or Accent? User said "font subtotal Hitam" for general subtotal. 
-                        // But here it was Accent. Let's stick to Accent for Final Totals but ensure subtotal label is dark.
-                        // Actually, user said "warna font subtotal Hitam". Let's try making the value black too if that's what they meant?
-                        // No, usually total/subtotal values are emphasized. Let's keep Accent for the VALUE, but Label is Dark.
-                        // Wait, looking at my previous edit for General:
-                        // .text('Subtotal', 400, ... Dark)
-                        // .text(formatCurrency(subtotal), ... Dark)
-                        // So I should make this VALUE dark too?
-                        // "warna font subtotal Hitam" -> probably applies to value too.
-                        // But let's check the General section I just edited.
-                        // Yes, I made the subtotal value Dark in lines 381.
-                        // So I will make this group subtotal value Dark too.
-
-                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
+                        doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
                             .text(formatCurrency(groupTotalAfterGroupDisc), 470, y, { width: 75, align: 'right' });
                     } else {
-                        doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
+                        doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
                             .text(formatCurrency(groupTotal), 470, y, { width: 75, align: 'right' });
                     }
                     y += 25;
