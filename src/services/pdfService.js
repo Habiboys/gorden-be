@@ -125,16 +125,36 @@ const generateDocumentPDF = (document) => {
                     // doc.rect(40, y, 515, 25).fill('#f9fafb'); 
                     // doc.rect(40, y, 515, 25).stroke('#e5e7eb');
 
-                    // Product Name & Variant - Minimalist Style
-                    const variantName = firstItem.selectedVariant?.name || '';
-                    const productWithVariant = variantName ? `${product?.name || 'Produk Custom'} - ${variantName}` : (product?.name || 'Produk Custom');
+                    // Product Name & Variant Attributes - Minimalist Style
+                    let variantAttr = '';
+                    if (firstItem.selectedVariant?.attributes) {
+                        try {
+                            const attrs = typeof firstItem.selectedVariant.attributes === 'string'
+                                ? JSON.parse(firstItem.selectedVariant.attributes)
+                                : firstItem.selectedVariant.attributes;
+                            if (attrs && Object.keys(attrs).length > 0) {
+                                // Only show value like "Ukur | Pasang Teknisi"
+                                variantAttr = Object.values(attrs).join(' | ');
+                            }
+                        } catch (e) { }
+                    }
+                    const productName = product?.name || 'Produk Custom';
                     doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                        .text(productWithVariant, 40, y);
+                        .text(productName, 40, y);
 
-                    // Price: 7pt Gray (was 9pt Accent)
+                    // Show variant attribute below product name if exists
+                    if (variantAttr) {
+                        doc.fontSize(6).font('Helvetica').fillColor(gray)
+                            .text(`(${variantAttr})`, 40, y + 10);
+                        y += 8; // Extra space for variant line
+                    }
+
+                    // Price: 7pt Gray
                     const priceText = product?.price ? formatCurrency(product.price) + '/m' : '';
-                    doc.fontSize(7).font('Helvetica').fillColor(gray)
-                        .text(priceText, 40, y + 10); // Standard layout
+                    if (priceText) {
+                        doc.fontSize(7).font('Helvetica').fillColor(gray)
+                            .text(priceText, 40, y + 10);
+                    }
 
                     y += 20; // Reduced spacing (was 35)
 
