@@ -111,7 +111,7 @@ const generateDocumentPDF = (document) => {
                     const groupDiscount = firstItem.groupDiscount || 0;
 
                     // Group Header
-                    if (y > 700) { doc.addPage(); y = 40; }
+                    if (y > 780) { doc.addPage(); y = 40; }
 
                     // Product Header (Minimalist - Box Removed)
                     // doc.rect(40, y, 515, 25).fill('#f9fafb'); 
@@ -193,7 +193,7 @@ const generateDocumentPDF = (document) => {
 
                         groupTotal += prices.total;
 
-                        if (y > 750) { doc.addPage(); y = 40; }
+                        if (y > 780) { doc.addPage(); y = 40; }
 
                         // Name Fix Logic
                         let displayName = item.name || '-';
@@ -222,7 +222,7 @@ const generateDocumentPDF = (document) => {
                         const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                         const rowHeight = Math.max(nameHeight, 10) + 10;
 
-                        if (y + rowHeight > 750) { doc.addPage(); y = 40; }
+                        if (y + rowHeight > 780) { doc.addPage(); y = 40; }
 
                         doc.fontSize(6).font('Helvetica').fillColor(dark)
                             .text(displayName, bx.label, y, { width: nameWidth, align: 'justify' })
@@ -297,12 +297,15 @@ const generateDocumentPDF = (document) => {
                         const packageType = item.packageType === 'gorden-lengkap' ? 'Gorden Lengkap' : 'Gorden Saja';
 
                         // Ensure page break for Header
-                        if (y > 700) { doc.addPage(); y = 40; }
+                        if (y > 780) { doc.addPage(); y = 40; }
 
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(itemTitle, 40, y);
                         doc.fontSize(6).font('Helvetica').fillColor(gray).text(packageType, 40, y + 10);
                         y += 18;
+                        // Line below item header
+                        doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke(dark);
+                        y += 6;
 
                         const allRows = [];
 
@@ -384,19 +387,17 @@ const generateDocumentPDF = (document) => {
                             }
                         }
 
-                        // Render all rows with better spacing and row numbers
-                        allRows.forEach((row, rowIdx) => {
+                        // Render all rows with better spacing
+                        allRows.forEach(row => {
                             let displayName = row.name || '-';
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
-                            // Add row number for components
-                            displayName = `${rowIdx + 1}. ${displayName}`;
 
-                            const nameWidth = 210;
+                            const nameWidth = 210; // Increased from 190 to fill gap
                             const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                             const rowHeight = Math.max(nameHeight, 10) + 10;
 
-                            if (y + rowHeight > 750) { doc.addPage(); y = 40; }
+                            if (y + rowHeight > 780) { doc.addPage(); y = 40; }
 
                             doc.fontSize(6).font('Helvetica').fillColor(dark)
                                 .text(displayName, colX.name, y, { width: nameWidth, align: 'justify' })
@@ -407,7 +408,7 @@ const generateDocumentPDF = (document) => {
                                 .text(formatCurrency(row.total), colX.total, y, { width: 85, align: 'right' });
 
                             y += rowHeight;
-                            // REMOVED: Per-item line (user requested: remove black lines between items)
+                            // REMOVED: Per-item line (user requested removal)
                         });
 
                         // Item Subtotal
@@ -420,15 +421,19 @@ const generateDocumentPDF = (document) => {
                             subtotalAfterDiscount = rowsTotal * (1 - itemDiscount / 100);
                         }
 
-                        // Subtotal Label in Dark (Requested: "font subtotal Hitam")
+                        // Line ABOVE subtotal (group separator)
+                        doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
+                        y += 4;
+
+                        // Subtotal Label in Dark
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
-                            .text('Subtotal', 400, y, { width: 60, align: 'right' }); // Shifted closer
+                            .text('Subtotal', 400, y, { width: 60, align: 'right' });
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                             .text(formatCurrency(Math.round(subtotalAfterDiscount)), 470, y, { width: 85, align: 'right' });
 
                         y += 18;
-                        // Line ABOVE subtotal (separator between groups)
-                        doc.moveTo(40, y - 8).lineTo(555, y - 8).lineWidth(0.5).stroke('#d1d5db');
+                        doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db'); // Divider between main items
+                        y += 5;
                         y += 5;
                     });
 
@@ -488,7 +493,7 @@ const generateDocumentPDF = (document) => {
             // ============ PAYMENT ============
             y += 30;
             // Only add new page if there's truly not enough space for ALL remaining content (~80px)
-            if (y > 720) { doc.addPage(); y = 40; }
+            if (y > 780) { doc.addPage(); y = 40; }
 
             doc.fontSize(7).font('Helvetica-Bold').fillColor(dark).text('PEMBAYARAN', 40, y);
             doc.fontSize(7).font('Helvetica').fillColor(gray)
