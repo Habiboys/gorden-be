@@ -151,6 +151,9 @@ const generateDocumentPDF = (document) => {
                         total: 470
                     };
 
+                    // Line ABOVE column headers
+                    doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.5).stroke(dark);
+
                     doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
                         .text('NAMA', bx.label, y)
                         .text('UKURAN', bx.size, y, { width: 55, align: 'center' })
@@ -161,7 +164,8 @@ const generateDocumentPDF = (document) => {
                         .text('TOTAL', bx.total, y, { width: 75, align: 'right' });
 
                     y += 10;
-                    doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#e5e7eb');
+                    // Line BELOW column headers
+                    doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke(dark);
                     y += 8;
 
                     let groupTotal = 0;
@@ -230,8 +234,7 @@ const generateDocumentPDF = (document) => {
                             .text(formatCurrency(prices.total), bx.total, y, { width: 75, align: 'right' });
 
                         y += rowHeight;
-                        // ADDED: Small line between rows ("garis tabel")
-                        doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.1).stroke('#e5e7eb');
+                        // REMOVED: Per-item line (user requested: "ga usah kasi garis pembatas")
                     });
 
                     // Group Subtotal Footer
