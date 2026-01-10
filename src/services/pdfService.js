@@ -274,6 +274,9 @@ const generateDocumentPDF = (document) => {
                     total: 470
                 };
 
+                // Line ABOVE column headers
+                doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.5).stroke(dark);
+
                 doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                     .text('NAMA', colX.name, y)
                     .text('HARGA SATUAN', colX.price, y, { width: 50, align: 'right' })
@@ -283,7 +286,8 @@ const generateDocumentPDF = (document) => {
                     .text('TOTAL', colX.total, y, { width: 85, align: 'right' });
 
                 y += 12;
-                doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke('#d1d5db');
+                // Line BELOW column headers
+                doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke(dark);
                 y += 6;
 
                 if (useRawItems) {
@@ -380,13 +384,15 @@ const generateDocumentPDF = (document) => {
                             }
                         }
 
-                        // Render all rows with better spacing
-                        allRows.forEach(row => {
+                        // Render all rows with better spacing and row numbers
+                        allRows.forEach((row, rowIdx) => {
                             let displayName = row.name || '-';
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
+                            // Add row number for components
+                            displayName = `${rowIdx + 1}. ${displayName}`;
 
-                            const nameWidth = 210; // Increased from 190 to fill gap
+                            const nameWidth = 210;
                             const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                             const rowHeight = Math.max(nameHeight, 10) + 10;
 
@@ -401,9 +407,7 @@ const generateDocumentPDF = (document) => {
                                 .text(formatCurrency(row.total), colX.total, y, { width: 85, align: 'right' });
 
                             y += rowHeight;
-
-                            // ADDED: Small line between rows for neatness ("garis tabel")
-                            doc.moveTo(40, y - 2).lineTo(555, y - 2).lineWidth(0.1).stroke('#e5e7eb');
+                            // REMOVED: Per-item line (user requested: remove black lines between items)
                         });
 
                         // Item Subtotal
@@ -423,7 +427,8 @@ const generateDocumentPDF = (document) => {
                             .text(formatCurrency(Math.round(subtotalAfterDiscount)), 470, y, { width: 85, align: 'right' });
 
                         y += 18;
-                        doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db'); // Divider between main items
+                        // Line ABOVE subtotal (separator between groups)
+                        doc.moveTo(40, y - 8).lineTo(555, y - 8).lineWidth(0.5).stroke('#d1d5db');
                         y += 5;
                     });
 
@@ -461,12 +466,11 @@ const generateDocumentPDF = (document) => {
             y += 8;
 
             // Adjusted X for closer label-value pair ("jangan sampai jarak jauh")
-            // Labels moved from 380 to 410. Value at 485/460.
             const totalLabelX = 410;
             const totalValueX = 485;
             const totalValueWidth = 70;
 
-            doc.fontSize(7).font('Helvetica').fillColor(dark).text('Subtotal', totalLabelX, y); // Dark Color
+            doc.fontSize(7).font('Helvetica').fillColor(dark).text('Subtotal', totalLabelX, y);
             doc.fillColor(dark).text(formatCurrency(subtotal), totalValueX, y, { width: totalValueWidth, align: 'right' });
             y += 12;
 
@@ -479,12 +483,12 @@ const generateDocumentPDF = (document) => {
             doc.moveTo(totalLabelX, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
             y += 8;
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', totalLabelX, y);
-            // Total price
-            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), totalValueX - 25, y - 1, { width: 95, align: 'right' }); // Keeping original value alignment logic but shifted slightly
+            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), totalValueX - 25, y - 1, { width: 95, align: 'right' });
 
             // ============ PAYMENT ============
             y += 30;
-            if (y > 760) { doc.addPage(); y = 40; }
+            // Only add new page if there's truly not enough space for ALL remaining content (~80px)
+            if (y > 720) { doc.addPage(); y = 40; }
 
             doc.fontSize(7).font('Helvetica-Bold').fillColor(dark).text('PEMBAYARAN', 40, y);
             doc.fontSize(7).font('Helvetica').fillColor(gray)
@@ -500,10 +504,12 @@ const generateDocumentPDF = (document) => {
                 doc.fontSize(6).font('Helvetica').fillColor(gray).text('Catatan: ' + docData.notes, 40, y, { width: 300 });
             }
 
-            // ============ FOOTER ============
+            // ============ FOOTER (on same page as payment, not absolute positioned) ============
+            y += 40;
+            if (y > 790) y = 790; // Cap at bottom of page
             doc.fontSize(7).font('Helvetica').fillColor(gray)
-                .text('Terima kasih atas kepercayaan Anda', 40, 810, { align: 'center', width: 515 });
-            doc.rect(40, 830, 515, 2).fill(accent);
+                .text('Terima kasih atas kepercayaan Anda', 40, y, { align: 'center', width: 515 });
+            doc.rect(40, y + 20, 515, 2).fill(accent);
 
             doc.end();
         } catch (error) { reject(error); }
