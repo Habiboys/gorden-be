@@ -142,10 +142,7 @@ const generateDocumentPDF = (document) => {
                     doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                         .text((product?.name || 'Produk Custom') + variantInfo, 40, y);
 
-                    // Price: 7pt Gray
-                    const priceText = product?.price ? formatCurrency(product.price) + '/m' : '';
-                    doc.fontSize(7).font('Helvetica').fillColor(gray)
-                        .text(priceText, 40, y + 10);
+
 
                     y += 20; // Reduced spacing (was 35)
 
@@ -163,12 +160,13 @@ const generateDocumentPDF = (document) => {
 
                     const bx = {
                         label: 40,
-                        size: 250,
-                        vol: 310,
-                        price: 350,
-                        disc: 405,
-                        qty: 440,
-                        total: 470
+                        size: 230,
+                        vol: 280,
+                        price: 315,
+                        disc: 360,
+                        net: 395,    // NEW: Harga Net column
+                        qty: 445,
+                        total: 475
                     };
 
                     // Line ABOVE column headers
@@ -176,10 +174,11 @@ const generateDocumentPDF = (document) => {
 
                     doc.fontSize(6).font('Helvetica-Bold').fillColor(gray)
                         .text('NAMA', bx.label, y)
-                        .text('UKURAN', bx.size, y, { width: 55, align: 'center' })
-                        .text('VOL', bx.vol, y, { width: 35, align: 'center' })
-                        .text('HARGA', bx.price, y, { width: 50, align: 'right' })
+                        .text('UKURAN', bx.size, y, { width: 45, align: 'center' })
+                        .text('VOL', bx.vol, y, { width: 30, align: 'center' })
+                        .text('HARGA', bx.price, y, { width: 40, align: 'right' })
                         .text('DISC', bx.disc, y, { width: 30, align: 'center' })
+                        .text('HARGA NET', bx.net, y, { width: 45, align: 'right' })
                         .text('QTY', bx.qty, y, { width: 25, align: 'center' })
                         .text('TOTAL', bx.total, y, { width: 75, align: 'right' });
 
@@ -204,7 +203,12 @@ const generateDocumentPDF = (document) => {
                             const fabricMultiplier = docData.calculatorTypeFromDB?.fabric_multiplier || 2.4;
                             vol = widthM * heightM * fabricMultiplier;
                         }
-                        const unitPrice = item.price_net || item.selectedVariant?.price || 0;
+
+                        // Get prices: Gross and Net
+                        const priceGross = item.selectedVariant?.price_gross || item.selectedVariant?.price || 0;
+                        const priceNet = item.price_net || item.selectedVariant?.price_net || priceGross;
+                        const fabricDiscount = item.fabricDiscount || (priceGross > 0 ? Math.round(((priceGross - priceNet) / priceGross) * 100) : 0);
+
                         const itemTotal = item.totalPrice || (windowItem?.subtotal) || 0;
 
                         groupTotal += itemTotal;
@@ -233,7 +237,7 @@ const generateDocumentPDF = (document) => {
                         }
 
                         // Render with Justify and Wide Column
-                        const nameWidth = 200;
+                        const nameWidth = 180;
                         const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                         const rowHeight = Math.max(nameHeight, 10) + 4;
 
@@ -241,10 +245,11 @@ const generateDocumentPDF = (document) => {
 
                         doc.fontSize(6).font('Helvetica').fillColor(dark)
                             .text(displayName, bx.label, y, { width: nameWidth, align: 'justify' })
-                            .text(`${item.width} x ${item.height}`, bx.size, y, { width: 55, align: 'center' })
-                            .text(vol.toFixed(2), bx.vol, y, { width: 35, align: 'center' })
-                            .text(formatCurrency(unitPrice), bx.price, y, { width: 50, align: 'right' })
-                            .text(item.fabricDiscount ? `${item.fabricDiscount}%` : '-', bx.disc, y, { width: 30, align: 'center' })
+                            .text(`${item.width} x ${item.height}`, bx.size, y, { width: 45, align: 'center' })
+                            .text(vol.toFixed(2), bx.vol, y, { width: 30, align: 'center' })
+                            .text(formatCurrency(priceGross), bx.price, y, { width: 40, align: 'right' })
+                            .text(fabricDiscount > 0 ? `${fabricDiscount}%` : '-', bx.disc, y, { width: 30, align: 'center' })
+                            .text(formatCurrency(priceNet), bx.net, y, { width: 45, align: 'right' })
                             .text((item.quantity).toString(), bx.qty, y, { width: 25, align: 'center' })
                             .text(formatCurrency(itemTotal), bx.total, y, { width: 75, align: 'right' });
 
@@ -255,18 +260,31 @@ const generateDocumentPDF = (document) => {
                     doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db');
                     y += 8;
 
-                    const groupTotalAfterGroupDisc = groupTotal * (1 - groupDiscount / 100);
+                    // Calculate totals from Net groupTotal (which matches Admin 'Subtotal' Result)
+                    const groupNetTotal = groupTotal;
+                    let groupGrossTotal = groupNetTotal;
+                    if (groupDiscount > 0) {
+                        // Back calculate Gross from Net
+                        groupGrossTotal = groupNetTotal / (1 - groupDiscount / 100);
+                    }
 
                     // Subtotal Group Label - Dark
-                    doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                        .text('Subtotal Grup' + (groupDiscount > 0 ? ` (Disc ${groupDiscount}%)` : ''), 350, y, { width: 100, align: 'right' });
+                    doc.fontSize(7).font('Helvetica-Bold').fillColor(dark);
 
                     if (groupDiscount > 0) {
-                        doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                            .text(formatCurrency(groupTotalAfterGroupDisc), 470, y, { width: 75, align: 'right' });
+                        // Show Breakdown: Gross -> Disc -> Net
+                        doc.text('Subtotal Grup', 350, y, { width: 100, align: 'right' })
+                            .text(formatCurrency(groupGrossTotal), 470, y, { width: 75, align: 'right' });
+                        y += 10;
+                        doc.text(`Disc ${groupDiscount}%`, 350, y, { width: 100, align: 'right' })
+                            .text(`-Rp ${formatCurrency(groupGrossTotal - groupNetTotal)}`, 470, y, { width: 75, align: 'right' });
+                        y += 10;
+                        doc.text('Subtotal', 350, y, { width: 100, align: 'right' })
+                            .text(formatCurrency(groupNetTotal), 470, y, { width: 75, align: 'right' });
                     } else {
-                        doc.fontSize(7).font('Helvetica-Bold').fillColor(dark)
-                            .text(formatCurrency(groupTotal), 470, y, { width: 75, align: 'right' });
+                        // No discount - just show Net
+                        doc.text('Subtotal Grup', 350, y, { width: 100, align: 'right' })
+                            .text(formatCurrency(groupNetTotal), 470, y, { width: 75, align: 'right' });
                     }
                     y += 25;
                 });
@@ -355,11 +373,11 @@ const generateDocumentPDF = (document) => {
 
                                 allRows.push({
                                     name: displayName,
-                                    priceGross: Math.round(wItem.price_gross || wItem.price || 0),
+                                    priceGross: wItem.price_gross || wItem.price || 0,
                                     discount: wItem.discount || 0,
-                                    priceNet: Math.round(wItem.price_net || wItem.price || 0),
+                                    priceNet: wItem.price_net || wItem.price || 0,
                                     qty: wItem.quantity || 1,
-                                    total: Math.round(wItem.totalPrice || 0)
+                                    total: wItem.totalPrice || 0
                                 });
                             });
                         } else {
@@ -391,11 +409,11 @@ const generateDocumentPDF = (document) => {
                             const productName = item.product?.name || item.productName || 'Gorden';
                             allRows.push({
                                 name: `${productName} (${variantName})`,
-                                priceGross: Math.round(fabricGross),
+                                priceGross: fabricGross,
                                 discount: fabricDiscount,
-                                priceNet: Math.round(fabricNet),
+                                priceNet: fabricNet,
                                 qty: effectiveQty,
-                                total: Math.round(fabricTotal)
+                                total: fabricTotal
                             });
 
                             // Component Rows ...
@@ -414,11 +432,11 @@ const generateDocumentPDF = (document) => {
 
                                     allRows.push({
                                         name: compName,
-                                        priceGross: Math.round(compGross),
+                                        priceGross: compGross,
                                         discount: compDiscount,
-                                        priceNet: Math.round(compNet),
+                                        priceNet: compNet,
                                         qty: compQty,
-                                        total: Math.round(compTotal)
+                                        total: compTotal
                                     });
                                 });
                             }
@@ -467,7 +485,7 @@ const generateDocumentPDF = (document) => {
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
                             .text('Subtotal', 400, y, { width: 60, align: 'right' });
                         doc.fontSize(6).font('Helvetica-Bold').fillColor(dark)
-                            .text(formatCurrency(Math.round(subtotalAfterDiscount)), 470, y, { width: 85, align: 'right' });
+                            .text(formatCurrency(subtotalAfterDiscount), 470, y, { width: 85, align: 'right' });
 
                         y += 18;
                         doc.moveTo(40, y).lineTo(555, y).lineWidth(0.5).stroke('#d1d5db'); // Divider between main items
@@ -491,11 +509,11 @@ const generateDocumentPDF = (document) => {
 
                                 doc.fontSize(6).font('Helvetica').fillColor(dark)
                                     .text(displayName, colX.name, y, { width: 210, align: 'justify' })
-                                    .text(formatCurrency(Math.round(itemPriceGross)), colX.price, y, { width: 50, align: 'right' })
+                                    .text(formatCurrency(itemPriceGross), colX.price, y, { width: 50, align: 'right' })
                                     .text(itemDiscount > 0 ? `${itemDiscount}%` : '-', colX.disc, y, { width: 30, align: 'center' })
-                                    .text(formatCurrency(Math.round(itemPriceNet)), colX.net, y, { width: 60, align: 'right' })
+                                    .text(formatCurrency(itemPriceNet), colX.net, y, { width: 60, align: 'right' })
                                     .text((item.quantity || 1).toString(), colX.qty, y, { width: 25, align: 'center' })
-                                    .text(formatCurrency(Math.round(itemTotal)), colX.total, y, { width: 85, align: 'right' });
+                                    .text(formatCurrency(itemTotal), colX.total, y, { width: 85, align: 'right' });
                                 y += 18;
                             });
                         }
@@ -533,7 +551,7 @@ const generateDocumentPDF = (document) => {
             doc.moveTo(totalLabelX, y).lineTo(555, y).lineWidth(0.8).stroke(dark);
             y += 8;
             doc.fontSize(8).font('Helvetica-Bold').fillColor(dark).text('TOTAL', totalLabelX, y);
-            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(total), totalValueX - 25, y - 1, { width: 95, align: 'right' });
+            doc.fontSize(9).font('Helvetica-Bold').fillColor(dark).text(formatCurrency(Math.ceil(total)), totalValueX - 25, y - 1, { width: 95, align: 'right' });
 
             // --- PAYMENT SECTION ---
             y += 25;
