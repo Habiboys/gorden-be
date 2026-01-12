@@ -326,7 +326,7 @@ const importProducts = async (req, res) => {
 };
 
 /**
- * Import Variants from Excel file
+ * Import Variants from Excel file with Dynamic Attributes support
  */
 const importVariants = async (req, res) => {
     try {
@@ -345,7 +345,7 @@ const importVariants = async (req, res) => {
         }
 
         // Fetch all products for SKU lookup
-        const products = await Product.findAll({ attributes: ['id', 'sku'] });
+        const products = await Product.findAll({ attributes: ['id', 'sku', 'variant_options'] });
         const productMap = {};
         products.forEach(p => {
             productMap[p.sku] = p.id;
@@ -356,6 +356,21 @@ const importVariants = async (req, res) => {
             errors: [],
             skipped: []
         };
+
+        // Reserved keys that are NOT attributes
+        const RESERVED_KEYS = [
+            'product_sku',
+            'price_gross',
+            'price_net',
+            'satuan',
+            'quantity_multiplier',
+            'sibak', // Keep for backward compatibility/multiplier logic
+            '__rowNum__'
+        ];
+
+        // Track all unique attribute values encountered per product
+        // Structure: { productId: { AttributeName: Set(values) } }
+        const productAttributeValues = {};
 
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
@@ -380,11 +395,45 @@ const importVariants = async (req, res) => {
                     continue;
                 }
 
-                // Build attributes JSON from columns
+                // --- Dynamic Attribute Parsing ---
                 const attributes = {};
-                if (row.lebar) attributes['Lebar'] = String(row.lebar);
-                if (row.tinggi) attributes['Tinggi'] = String(row.tinggi);
-                if (row.sibak) attributes['Sibak'] = String(row.sibak);
+
+                // Helper to capitalize first letter
+                const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+                Object.keys(row).forEach(key => {
+                    const cleanKey = key.trim();
+                    // If not reserved, treat as attribute
+                    if (!RESERVED_KEYS.includes(cleanKey.toLowerCase())) {
+                        // Use original key casing or Capitalize? Let's Capitalize for consistency
+                        const attrName = capitalize(cleanKey);
+                        attributes[attrName] = String(row[key]);
+                    }
+                });
+
+                // Backward compatibility: If 'lebar' or 'tinggi' are explicitly columns (which they are),
+                // they are caught by the loop above if not in RESERVED_KEYS.
+                // Wait, I didn't put 'lebar'/'tinggi' in reserved keys, so they will be added as 'Lebar'/'Tinggi'.
+                // 'sibak' IS in reserved keys, so it won't be added as attribute automatically.
+                // But we might want 'Sibak' to be an attribute IF it's used as one.
+                // However, usually Sibak is a multiplier. 
+                // Let's explicitly check 'sibak' column to add it as attribute 'Sibak' AND use it as multiplier.
+                if (row.sibak) {
+                    attributes['Sibak'] = String(row.sibak);
+                }
+
+                // Initialize tracker for this product if needed
+                if (!productAttributeValues[productId]) {
+                    productAttributeValues[productId] = {};
+                }
+
+                // Collect attribute values for variant_options update
+                Object.entries(attributes).forEach(([name, val]) => {
+                    if (!productAttributeValues[productId][name]) {
+                        productAttributeValues[productId][name] = new Set();
+                    }
+                    productAttributeValues[productId][name].add(val);
+                });
 
                 // Create variant
                 const variant = await ProductVariant.create({
@@ -413,76 +462,64 @@ const importVariants = async (req, res) => {
             }
         }
 
-        // Update Product Configuration (variant_options) BEFORE sending response
-        // This ensures the Frontend UI has proper variant type cards with values populated
-        const distinctProductIds = [...new Set(results.success.map(r => r.variant.product_id).filter(id => id))];
+        // --- Update Product Variant Options (Dynamic) ---
+        const impactedProductIds = Object.keys(productAttributeValues);
 
-        // Collect all unique attribute values per product
-        const productAttributeValues = {};
-        for (const item of results.success) {
-            const pid = item.variant.product_id;
-            if (!pid) continue;
-            if (!productAttributeValues[pid]) {
-                productAttributeValues[pid] = { Lebar: new Set(), Tinggi: new Set(), Sibak: new Set() };
-            }
-            const attrs = item.variant.attributes || {};
-            if (attrs.Lebar) productAttributeValues[pid].Lebar.add(attrs.Lebar);
-            if (attrs.Tinggi) productAttributeValues[pid].Tinggi.add(attrs.Tinggi);
-            if (attrs.Sibak) productAttributeValues[pid].Sibak.add(attrs.Sibak);
-        }
-
-        // Check if the import data contains Sibak
-        const hasSibakData = data.some(row => row.sibak);
-
-        for (const productId of distinctProductIds) {
+        for (const productId of impactedProductIds) {
             try {
                 const product = await Product.findByPk(productId);
-                if (product) {
-                    let options = product.variant_options || [];
-                    if (typeof options === 'string') {
-                        try { options = JSON.parse(options); } catch (e) { options = []; }
-                    }
+                if (!product) continue;
 
-                    const attrData = productAttributeValues[productId] || {};
-
-                    // Helper to update or add an option
-                    const updateOrAddOption = (name, values, isMultiplier = false) => {
-                        const existingIdx = options.findIndex(opt => opt.name && opt.name.toLowerCase() === name.toLowerCase());
-                        const valuesArray = [...values].sort((a, b) => parseFloat(a) - parseFloat(b));
-
-                        if (existingIdx >= 0) {
-                            // Merge values
-                            const existingValues = options[existingIdx].values || [];
-                            const mergedValues = [...new Set([...existingValues, ...valuesArray])].sort((a, b) => parseFloat(a) - parseFloat(b));
-                            options[existingIdx].values = mergedValues;
-                            if (isMultiplier) options[existingIdx].is_multiplier = true;
-                        } else if (valuesArray.length > 0) {
-                            // Add new
-                            options.push({
-                                name: name,
-                                values: valuesArray,
-                                is_multiplier: isMultiplier
-                            });
-                        }
-                    };
-
-                    // Update Lebar
-                    if (attrData.Lebar && attrData.Lebar.size > 0) {
-                        updateOrAddOption('Lebar', attrData.Lebar, false);
-                    }
-
-                    // Update Tinggi
-                    if (attrData.Tinggi && attrData.Tinggi.size > 0) {
-                        updateOrAddOption('Tinggi', attrData.Tinggi, false);
-                    }
-
-                    // Update Sibak (with is_multiplier = true)
-                    if (attrData.Sibak && attrData.Sibak.size > 0) {
-                        updateOrAddOption('Sibak', attrData.Sibak, true);
-                    }
-
-                    await product.update({ variant_options: options });
+                let options = product.variant_options || [];
+                if (typeof options === 'string') {
+                    try { options = JSON.parse(options); } catch (e) { options = []; }
                 }
+
+                const attrData = productAttributeValues[productId];
+
+                // Helper to update or add an option
+                const updateOrAddOption = (name, values, isMultiplier = false) => {
+                    // Try to find case-insensitive match for existing option name
+                    const existingIdx = options.findIndex(opt => opt.name && opt.name.toLowerCase() === name.toLowerCase());
+
+                    // Numeric sort if possible, else string sort
+                    const valuesArray = [...values].sort((a, b) => {
+                        const numA = parseFloat(a);
+                        const numB = parseFloat(b);
+                        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                        return String(a).localeCompare(String(b));
+                    });
+
+                    if (existingIdx >= 0) {
+                        // Merge values
+                        const existingValues = options[existingIdx].values || [];
+                        const mergedValues = [...new Set([...existingValues, ...valuesArray])].sort((a, b) => {
+                            const numA = parseFloat(a);
+                            const numB = parseFloat(b);
+                            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                            return String(a).localeCompare(String(b));
+                        });
+                        options[existingIdx].values = mergedValues;
+                        if (isMultiplier) options[existingIdx].is_multiplier = true;
+                    } else if (valuesArray.length > 0) {
+                        // Add new
+                        options.push({
+                            name: name,
+                            values: valuesArray,
+                            is_multiplier: isMultiplier
+                        });
+                    }
+                };
+
+                // Iterate through ALL collected attributes for this product
+                Object.keys(attrData).forEach(attrName => {
+                    const values = attrData[attrName];
+                    const isMultiplier = attrName.toLowerCase() === 'sibak';
+                    updateOrAddOption(attrName, values, isMultiplier);
+                });
+
+                await product.update({ variant_options: options });
+
             } catch (updateError) {
                 console.error(`Failed to update variant options for product ${productId}:`, updateError);
             }
