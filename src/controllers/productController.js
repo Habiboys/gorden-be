@@ -111,7 +111,7 @@ const getProducts = async (req, res) => {
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net', 'satuan'] },
-                { model: Badge, as: 'badges' }
+                { model: Badge, as: 'badges', required: false }
             ]
         };
 
@@ -212,7 +212,7 @@ const getProductDetail = async (req, res) => {
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: ProductPackage },
-                { model: Badge, as: 'badges' }
+                { model: Badge, as: 'badges', required: false }
             ]
         });
 
