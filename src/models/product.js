@@ -10,6 +10,12 @@ module.exports = (sequelize, DataTypes) => {
             Product.hasMany(models.ProductPackage, { foreignKey: 'product_id' });
             Product.hasMany(models.OrderItem, { foreignKey: 'product_id' });
             Product.hasMany(models.ProductVariant, { foreignKey: 'product_id', as: 'variants' });
+            Product.belongsToMany(models.Badge, {
+                through: 'ProductBadges',
+                foreignKey: 'product_id',
+                otherKey: 'badge_id',
+                as: 'badges'
+            });
         }
     }
     Product.init({

@@ -1,4 +1,4 @@
-const { Product, Category, SubCategory, ProductPackage, ProductVariant, Sequelize } = require('../models');
+const { Product, Category, SubCategory, ProductPackage, ProductVariant, Badge, Sequelize } = require('../models');
 const { Op } = Sequelize;
 const { deleteImages, cleanupRemovedImages } = require('../utils/imageCleanup');
 
@@ -109,7 +109,9 @@ const getProducts = async (req, res) => {
             include: [
                 { model: Category, attributes: ['name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
-                { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net', 'satuan'] }
+                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
+                { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net', 'satuan'] },
+                { model: Badge, as: 'badges' }
             ]
         };
 
@@ -208,7 +210,9 @@ const getProductDetail = async (req, res) => {
             include: [
                 { model: Category, attributes: ['id', 'name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
-                { model: ProductPackage }
+                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
+                { model: ProductPackage },
+                { model: Badge, as: 'badges' }
             ]
         });
 
@@ -274,6 +278,10 @@ const createProduct = async (req, res) => {
             is_featured, is_new_arrival, is_best_seller, is_warranty, is_custom, variant_options,
             meta_title, meta_description, meta_keywords, status
         });
+
+        if (req.body.badgeIds && Array.isArray(req.body.badgeIds)) {
+            await product.setBadges(req.body.badgeIds);
+        }
 
         res.status(201).json({
             success: true,
@@ -349,6 +357,10 @@ const updateProduct = async (req, res) => {
 
         console.log('📦 Updating product with data:', JSON.stringify(req.body, null, 2));
         await product.update(req.body);
+
+        if (req.body.badgeIds && Array.isArray(req.body.badgeIds)) {
+            await product.setBadges(req.body.badgeIds);
+        }
 
         res.status(200).json({
             success: true,

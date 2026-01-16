@@ -30,6 +30,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const subcategoryRoutes = require('./routes/subcategoryRoutes');
 const calculatorTypeRoutes = require('./routes/calculatorTypeRoutes');
+const badgeRoutes = require('./routes/badgeRoutes');
 
 // Serve static files
 app.use('/uploads', express.static('uploads'));
@@ -54,6 +55,7 @@ app.use('/api/v1/gallery', galleryRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/subcategories', subcategoryRoutes);
+app.use('/api/v1/badges', badgeRoutes);
 
 app.get('/', (req, res) => {
     res.send('Gorden Backend API is running');
