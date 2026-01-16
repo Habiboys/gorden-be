@@ -333,7 +333,24 @@ const generateDocumentPDF = (document) => {
                             .text(itemTitle, 40, y);
                         doc.fontSize(6).font('Helvetica').fillColor(gray).text(packageType, 40, y + 10);
                         y += 18;
-                        // Line below item header
+
+                        // Render Note if exists (Now part of Header, above the line)
+                        if (item.note) {
+                            const noteText = `Catatan: ${item.note}`;
+                            const noteX = 40;
+                            const noteW = 515;
+                            const noteH = doc.heightOfString(noteText, { width: noteW });
+
+                            if (y + noteH > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
+
+                            doc.fontSize(7).font('Helvetica-Oblique').fillColor(gray)
+                                .text(noteText, noteX, y, { width: noteW, align: 'left' });
+                            y += noteH + 6;
+                        } else {
+                            y += 4;
+                        }
+
+                        // Line below item header (and note)
                         doc.moveTo(40, y).lineTo(555, y).lineWidth(0.3).stroke(dark);
                         y += 6;
 
@@ -466,6 +483,8 @@ const generateDocumentPDF = (document) => {
                             y += rowHeight;
                             // REMOVED: Per-item line (user requested removal)
                         });
+
+
 
                         // Item Subtotal
                         let subtotalAfterDiscount;
