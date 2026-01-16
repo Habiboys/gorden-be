@@ -329,23 +329,25 @@ const generateDocumentPDF = (document) => {
                         // Ensure page break for Header
                         if (y > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
+                        // Title (bold, black) then Package Type (smaller, gray) on SAME LINE
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
-                            .text(itemTitle, 40, y);
-                        doc.fontSize(6).font('Helvetica').fillColor(gray).text(packageType, 40, y + 10);
-                        y += 18;
+                            .text(itemTitle, 40, y, { continued: true });
+                        doc.fontSize(7).font('Helvetica').fillColor(gray)
+                            .text(`  ${packageType}`, { continued: false });
+                        y += 12;
 
-                        // Render Note if exists (Now part of Header, above the line)
+                        // Render Note if exists (smaller font)
                         if (item.note) {
                             const noteText = `Catatan: ${item.note}`;
                             const noteX = 40;
                             const noteW = 515;
-                            const noteH = doc.heightOfString(noteText, { width: noteW });
+                            const noteH = doc.heightOfString(noteText, { width: noteW, fontSize: 6 });
 
                             if (y + noteH > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
-                            doc.fontSize(7).font('Helvetica-Oblique').fillColor(gray)
+                            doc.fontSize(6).font('Helvetica-Oblique').fillColor(gray)
                                 .text(noteText, noteX, y, { width: noteW, align: 'left' });
-                            y += noteH + 6;
+                            y += noteH + 4;
                         } else {
                             y += 4;
                         }
