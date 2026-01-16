@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
             Product.hasMany(models.OrderItem, { foreignKey: 'product_id' });
             Product.hasMany(models.ProductVariant, { foreignKey: 'product_id', as: 'variants' });
             Product.belongsToMany(models.Badge, {
-                through: 'ProductBadges',
+                through: 'product_badges',
                 foreignKey: 'product_id',
                 otherKey: 'badge_id',
                 as: 'badges'

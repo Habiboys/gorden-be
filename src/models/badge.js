@@ -4,7 +4,7 @@ module.exports = (sequelize, DataTypes) => {
     class Badge extends Model {
         static associate(models) {
             Badge.belongsToMany(models.Product, {
-                through: 'ProductBadges',
+                through: 'product_badges',
                 foreignKey: 'badge_id',
                 otherKey: 'product_id',
                 as: 'products'
