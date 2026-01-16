@@ -154,7 +154,10 @@ const getProducts = async (req, res) => {
 
                         Object.keys(attrs).forEach(key => {
                             const k = key.toLowerCase();
-                            const val = parseFloat(attrs[key]);
+                            // Extract numeric value from strings like "L 120" or "T 200" or plain "120"
+                            const rawVal = String(attrs[key]);
+                            const numericMatch = rawVal.match(/[\d.]+/);
+                            const val = numericMatch ? parseFloat(numericMatch[0]) : NaN;
                             if (!isNaN(val)) {
                                 if (['lebar', 'width', 'l'].includes(k)) tempWidths.push(val);
                                 if (['tinggi', 'height', 't'].includes(k)) tempHeights.push(val);

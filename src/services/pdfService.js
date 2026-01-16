@@ -277,7 +277,7 @@ const generateDocumentPDF = (document) => {
                             .text(formatCurrency(groupGrossTotal), 470, y, { width: 75, align: 'right' });
                         y += 10;
                         doc.text(`Disc ${groupDiscount}%`, 350, y, { width: 100, align: 'right' })
-                            .text(`-Rp ${formatCurrency(groupGrossTotal - groupNetTotal)}`, 470, y, { width: 75, align: 'right' });
+                            .text(`-${formatCurrency(groupGrossTotal - groupNetTotal)}`, 470, y, { width: 75, align: 'right' });
                         y += 10;
                         doc.text('Subtotal', 350, y, { width: 100, align: 'right' })
                             .text(formatCurrency(groupNetTotal), 470, y, { width: 75, align: 'right' });
