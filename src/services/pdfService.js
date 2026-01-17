@@ -329,27 +329,26 @@ const generateDocumentPDF = (document) => {
                         // Ensure page break for Header
                         if (y > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
-                        // Title (bold, black) then Package Type (smaller, gray) on SAME LINE
+                        // Title (bold, black) then Package Type (smaller, gray) on same line
                         doc.fontSize(8).font('Helvetica-Bold').fillColor(dark)
                             .text(itemTitle, 40, y, { continued: true });
                         doc.fontSize(7).font('Helvetica').fillColor(gray)
                             .text(`  ${packageType}`, { continued: false });
                         y += 12;
 
-                        // Render Note if exists (smaller font)
+                        // Render Note on separate line if exists, indented to align with "Jendela" word
                         if (item.note) {
+                            // Indent to align with word after number (e.g., "4 Jendela" -> indent past "4 ")
+                            const noteIndent = 47; // Position where "Jendela" starts (after "4 ")
                             const noteText = `Catatan: ${item.note}`;
-                            const noteX = 40;
-                            const noteW = 515;
+                            const noteW = 515 - (noteIndent - 40);
                             const noteH = doc.heightOfString(noteText, { width: noteW, fontSize: 6 });
 
                             if (y + noteH > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                             doc.fontSize(6).font('Helvetica-Oblique').fillColor(gray)
-                                .text(noteText, noteX, y, { width: noteW, align: 'left' });
+                                .text(noteText, noteIndent, y, { width: noteW, align: 'left' });
                             y += noteH + 4;
-                        } else {
-                            y += 4;
                         }
 
                         // Line below item header (and note)
