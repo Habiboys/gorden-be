@@ -466,15 +466,19 @@ const generateDocumentPDF = (document) => {
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
 
-                            const nameWidth = 250; // Wider for longer product names
-                            const numberedName = `#${rowIdx + 1}   ${displayName}`; // Extra spaces after number
-                            const nameHeight = doc.heightOfString(numberedName, { width: nameWidth });
+                            const numberText = `#${rowIdx + 1}`;
+                            const indent = 15; // Indentation for text
+                            const nameX = colX.name + indent;
+                            const nameWidth = 250 - indent; // Adjust width for indentation
+
+                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
                             const rowHeight = Math.max(nameHeight, 10) + 4;
 
                             if (y + rowHeight > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
                             doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                .text(numberedName, colX.name, y, { width: nameWidth })
+                                .text(numberText, colX.name, y) // Render number
+                                .text(displayName, nameX, y, { width: nameWidth, align: 'justify' }) // Render text with hanging indent
                                 .text(formatCurrency(row.priceGross), colX.price, y, { width: 45, align: 'right' })
                                 .text(row.discount > 0 ? `${row.discount}%` : '-', colX.disc, y, { width: 35, align: 'center' })
                                 .text(formatCurrency(row.priceNet), colX.net, y, { width: 55, align: 'right' })
