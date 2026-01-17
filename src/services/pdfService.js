@@ -465,20 +465,26 @@ const generateDocumentPDF = (document) => {
                             let displayName = row.name || '-';
                             displayName = displayName.replace(/^Pilih\s+[^:]+:\s*/i, '');
                             displayName = displayName.replace(/undefined/g, '-');
+                            displayName = displayName.trim(); // Trim whitespace
 
                             const numberText = `#${rowIdx + 1}`;
-                            const indent = 15; // Indentation for text
+                            const indent = 12; // Reduced indentation slightly
                             const nameX = colX.name + indent;
-                            const nameWidth = 250 - indent; // Adjust width for indentation
+                            const nameWidth = 250 - indent;
 
-                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'justify' });
-                            const rowHeight = Math.max(nameHeight, 10) + 4;
+                            // Set font size/family BEFORE calculating height to ensure accuracy
+                            doc.fontSize(6).font('Helvetica');
+
+                            const nameHeight = doc.heightOfString(displayName, { width: nameWidth, align: 'left' });
+                            // Reduce min height slightly (font size 6 is small) and padding
+                            const rowHeight = Math.max(nameHeight, 8) + 2;
 
                             if (y + rowHeight > 780) { doc.addPage(); addWatermark(); addPageHeader(); y = 92; }
 
-                            doc.fontSize(6).font('Helvetica').fillColor(dark)
-                                .text(numberText, colX.name, y) // Render number
-                                .text(displayName, nameX, y, { width: nameWidth, align: 'justify' }) // Render text with hanging indent
+                            // Font is already set, just set color and render
+                            doc.fillColor(dark)
+                                .text(numberText, colX.name, y)
+                                .text(displayName, nameX, y, { width: nameWidth, align: 'left' }) // Align left
                                 .text(formatCurrency(row.priceGross), colX.price, y, { width: 45, align: 'right' })
                                 .text(row.discount > 0 ? `${row.discount}%` : '-', colX.disc, y, { width: 35, align: 'center' })
                                 .text(formatCurrency(row.priceNet), colX.net, y, { width: 55, align: 'right' })
