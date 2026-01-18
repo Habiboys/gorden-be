@@ -41,14 +41,16 @@ const getProductImage = (product) => {
 /**
  * Generate HTML with meta tags for product
  */
-const generateMetaHtml = (product, pageUrl, isBot = false) => {
+const generateMetaHtml = (product, pageUrl, options = {}) => {
+    const { skipRedirect = false } = options;
     const title = product.meta_title || product.name;
     const description = (product.meta_description || product.description || 'Gorden berkualitas dari Amagriya').replace(/\n/g, ' ').substring(0, 200);
     const image = getProductImage(product);
     const siteName = 'Amagriya Gorden';
 
-    // Only include JS redirect if NOT a bot
-    const jsRedirect = !isBot ? `<script>window.location.replace("${pageUrl}");</script>` : '';
+    // Only include JS redirect if NOT skipping (i.e. not a bot/forced bot)
+    // This prevents infinite loops if a browser mimicking a bot executes the JS
+    const redirectScript = skipRedirect ? '' : `<script>window.location.replace("${pageUrl}");</script>`;
 
     return `<!DOCTYPE html>
 <html lang="id">
@@ -81,13 +83,14 @@ const generateMetaHtml = (product, pageUrl, isBot = false) => {
     
     <link rel="canonical" href="${pageUrl}">
     
-    ${jsRedirect}
+    <!-- JS redirect for users only (bots don't execute JS) -->
+    ${redirectScript}
 </head>
 <body>
-    <h1>${title}</h1>
-    <p>${description}</p>
-    <img src="${image}" alt="${title}" style="max-width: 100%; height: auto;">
-    <p>View product at: <a href="${pageUrl}">${pageUrl}</a></p>
+    <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
+    <noscript>
+        <p>Click <a href="${pageUrl}">here</a> if not redirected automatically.</p>
+    </noscript>
 </body>
 </html>`;
 };
@@ -124,7 +127,7 @@ exports.getProductMeta = async (req, res) => {
             return res.redirect(302, pageUrl);
         }
 
-        // Products use SKU as URL identifier, not a separate "slug" field
+        // For bots, serve the meta tags HTML
         const product = await Product.findOne({
             where: { sku: slug },
             include: [{ model: Category, as: 'Category' }]
@@ -142,14 +145,13 @@ exports.getProductMeta = async (req, res) => {
                 return res.redirect(SITE_URL);
             }
 
-            // Use product found by ID - pass isBot true since we are here
-            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`, true);
+            // Use product found by ID
+            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`, { skipRedirect: isForcedBot });
             res.set('Content-Type', 'text/html');
             return res.send(html);
         }
 
-        // Pass isBot=true because we already checked !isBot above
-        const html = generateMetaHtml(product, pageUrl, true);
+        const html = generateMetaHtml(product, pageUrl, { skipRedirect: isForcedBot });
         res.set('Content-Type', 'text/html');
         res.send(html);
 
@@ -198,9 +200,6 @@ exports.getArticleMeta = async (req, res) => {
             image = `${SITE_URL}/favicon.png`; // Fallback to favicon since logo.png is missing
         }
 
-        // Manual logic for article HTML generation since it uses a unique structure or we could unify it?
-        // Let's use custom HTML for article similar to generateMetaHtml but tailored
-
         const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -221,10 +220,7 @@ exports.getArticleMeta = async (req, res) => {
     <link rel="canonical" href="${pageUrl}">
 </head>
 <body>
-    <h1>${title}</h1>
-    <p>${description}</p>
-    <img src="${image}" alt="${title}" style="max-width: 100%; height: auto;">
-    <p>View article at: <a href="${pageUrl}">${pageUrl}</a></p>
+    <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
 </body>
 </html>`;
 
