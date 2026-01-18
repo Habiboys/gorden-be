@@ -7,28 +7,31 @@ const port = process.env.PORT || 3000;
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // allow server-to-server & postman
+        // allow server-to-server & postman (no origin)
         if (!origin) return callback(null, true);
-
-        if (process.env.NODE_ENV !== 'production') {
-            // development: bebas
-            return callback(null, true);
-        }
 
         // production: whitelist
         const allowedOrigins = [
             'https://amagriya.com',
-            'https://www.amagriya.com'
+            'https://www.amagriya.com',
+            'http://amagriya.com',
+            'http://www.amagriya.com',
         ];
 
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
 
+        // For development, allow all
+        if (process.env.NODE_ENV !== 'production') {
+            return callback(null, true);
+        }
+
+        console.log('CORS blocked origin:', origin);
         return callback(new Error('Not allowed by CORS'));
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true
 };
 
