@@ -43,10 +43,12 @@ const getProductImage = (product) => {
  */
 const generateMetaHtml = (product, pageUrl) => {
     const title = product.meta_title || product.name;
-    const description = product.meta_description || product.description || 'Gorden berkualitas dari Amagriya';
+    const description = (product.meta_description || product.description || 'Gorden berkualitas dari Amagriya').replace(/\n/g, ' ').substring(0, 200);
     const image = getProductImage(product);
     const siteName = 'Amagriya Gorden';
 
+    // NO meta refresh! Bots will just read meta tags.
+    // Only real users (with JS) will be redirected.
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -76,9 +78,10 @@ const generateMetaHtml = (product, pageUrl) => {
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:image" content="${image}">
     
-    <!-- Redirect to actual page after meta tags are read -->
-    <meta http-equiv="refresh" content="0;url=${pageUrl}">
     <link rel="canonical" href="${pageUrl}">
+    
+    <!-- JS redirect for real users only (bots don't execute JS) -->
+    <script>window.location.replace("${pageUrl}");</script>
 </head>
 <body>
     <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
@@ -155,10 +158,13 @@ exports.getArticleMeta = async (req, res) => {
     <meta property="og:title" content="${title} | Amagriya Gorden">
     <meta property="og:description" content="${description}">
     <meta property="og:image" content="${image}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:site_name" content="Amagriya Gorden">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="${image}">
-    <meta http-equiv="refresh" content="0;url=${pageUrl}">
+    <link rel="canonical" href="${pageUrl}">
+    <script>window.location.replace("${pageUrl}");</script>
 </head>
 <body>
     <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
