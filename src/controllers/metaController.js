@@ -41,17 +41,14 @@ const getProductImage = (product) => {
 /**
  * Generate HTML with meta tags for product
  */
-const generateMetaHtml = (product, pageUrl, options = {}) => {
-    const { skipRedirect = false } = options;
+const generateMetaHtml = (product, pageUrl) => {
     const title = product.meta_title || product.name;
     const description = (product.meta_description || product.description || 'Gorden berkualitas dari Amagriya').replace(/\n/g, ' ').substring(0, 200);
     const image = getProductImage(product);
     const siteName = 'Amagriya Gorden';
 
-    // Only include JS redirect if NOT skipping (i.e. not a bot/forced bot)
-    // This prevents infinite loops if a browser mimicking a bot executes the JS
-    const redirectScript = skipRedirect ? '' : `<script>window.location.replace("${pageUrl}");</script>`;
-
+    // NO meta refresh - it causes redirect loop with .htaccess bot detection
+    // Only JS redirect - bots don't execute JS so they just read meta tags
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -84,7 +81,7 @@ const generateMetaHtml = (product, pageUrl, options = {}) => {
     <link rel="canonical" href="${pageUrl}">
     
     <!-- JS redirect for users only (bots don't execute JS) -->
-    ${redirectScript}
+    <script>window.location.replace("${pageUrl}");</script>
 </head>
 <body>
     <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
@@ -146,12 +143,12 @@ exports.getProductMeta = async (req, res) => {
             }
 
             // Use product found by ID
-            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`, { skipRedirect: isForcedBot });
+            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`);
             res.set('Content-Type', 'text/html');
             return res.send(html);
         }
 
-        const html = generateMetaHtml(product, pageUrl, { skipRedirect: isForcedBot });
+        const html = generateMetaHtml(product, pageUrl);
         res.set('Content-Type', 'text/html');
         res.send(html);
 
@@ -220,7 +217,7 @@ exports.getArticleMeta = async (req, res) => {
     <link rel="canonical" href="${pageUrl}">
 </head>
 <body>
-    <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
+    <p>Amagriya Gorden - ${title}</p>
 </body>
 </html>`;
 
