@@ -41,11 +41,15 @@ const getProductImage = (product) => {
 /**
  * Generate HTML with meta tags for product
  */
-const generateMetaHtml = (product, pageUrl) => {
+/**
+ * Generate HTML with meta tags for product
+ */
+const generateMetaHtml = (product, pageUrl, redirectUrl = null) => {
     const title = product.meta_title || product.name;
     const description = (product.meta_description || product.description || 'Gorden berkualitas dari Amagriya').replace(/\n/g, ' ').substring(0, 200);
     const image = getProductImage(product);
     const siteName = 'Amagriya Gorden';
+    const destUrl = redirectUrl || pageUrl;
 
     // NO meta refresh - it causes redirect loop with .htaccess bot detection
     // Only JS redirect - bots don't execute JS so they just read meta tags
@@ -81,12 +85,12 @@ const generateMetaHtml = (product, pageUrl) => {
     <link rel="canonical" href="${pageUrl}">
     
     <!-- JS redirect for users only (bots don't execute JS) -->
-    <script>window.location.replace("${pageUrl}");</script>
+    <script>window.location.replace("${destUrl}");</script>
 </head>
 <body>
-    <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
+    <p>Redirecting to <a href="${destUrl}">${title}</a>...</p>
     <noscript>
-        <p>Click <a href="${pageUrl}">here</a> if not redirected automatically.</p>
+        <p>Click <a href="${destUrl}">here</a> if not redirected automatically.</p>
     </noscript>
 </body>
 </html>`;
@@ -143,12 +147,15 @@ exports.getProductMeta = async (req, res) => {
             }
 
             // Use product found by ID
-            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`);
+            const prodUrl = `${SITE_URL}/product/${productById.sku}`;
+            const redirectUrl = isForcedBot ? `${prodUrl}?human=1` : null;
+            const html = generateMetaHtml(productById, prodUrl, redirectUrl);
             res.set('Content-Type', 'text/html');
             return res.send(html);
         }
 
-        const html = generateMetaHtml(product, pageUrl);
+        const redirectUrl = isForcedBot ? `${pageUrl}?human=1` : null;
+        const html = generateMetaHtml(product, pageUrl, redirectUrl);
         res.set('Content-Type', 'text/html');
         res.send(html);
 
@@ -197,6 +204,8 @@ exports.getArticleMeta = async (req, res) => {
             image = `${SITE_URL}/favicon.png`; // Fallback to favicon since logo.png is missing
         }
 
+        const redirectUrl = isForcedBot ? `${pageUrl}?human=1` : null;
+
         const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -215,9 +224,13 @@ exports.getArticleMeta = async (req, res) => {
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="${image}">
     <link rel="canonical" href="${pageUrl}">
+    <script>window.location.replace("${redirectUrl || pageUrl}");</script>
 </head>
 <body>
-    <p>Amagriya Gorden - ${title}</p>
+    <p>Redirecting...</p>
+    <noscript>
+        <p>Click <a href="${redirectUrl || pageUrl}">here</a> to view.</p>
+    </noscript>
 </body>
 </html>`;
 
