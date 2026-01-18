@@ -92,19 +92,36 @@ const generateMetaHtml = (product, pageUrl) => {
 /**
  * GET /share/product/:slug
  * Returns HTML with proper meta tags for social sharing
+ * Note: "slug" in URL is actually the product SKU
  */
 exports.getProductMeta = async (req, res) => {
     try {
         const { slug } = req.params;
+        console.log('[MetaController] Looking for product with sku:', slug);
 
+        // Products use SKU as URL identifier, not a separate "slug" field
         const product = await Product.findOne({
-            where: { slug },
+            where: { sku: slug },
             include: [{ model: Category, as: 'Category' }]
         });
 
         if (!product) {
-            // Redirect to homepage if product not found
-            return res.redirect(SITE_URL);
+            console.log('[MetaController] Product not found for sku:', slug);
+            // Try to find by ID as fallback
+            const productById = await Product.findByPk(slug, {
+                include: [{ model: Category, as: 'Category' }]
+            });
+
+            if (!productById) {
+                console.log('[MetaController] Product also not found by ID, redirecting to homepage');
+                return res.redirect(SITE_URL);
+            }
+
+            // Use product found by ID
+            const pageUrl = `${SITE_URL}/product/${productById.sku}`;
+            const html = generateMetaHtml(productById, pageUrl);
+            res.set('Content-Type', 'text/html');
+            return res.send(html);
         }
 
         const pageUrl = `${SITE_URL}/product/${slug}`;
