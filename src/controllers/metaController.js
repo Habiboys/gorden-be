@@ -93,6 +93,15 @@ const generateMetaHtml = (product, pageUrl) => {
 };
 
 /**
+ * Check if request is from a social media bot/crawler
+ */
+const isSocialBot = (userAgent) => {
+    if (!userAgent) return false;
+    const botPatterns = /facebookexternalhit|Facebot|Twitterbot|Pinterest|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|vkShare|crawler|bot|spider/i;
+    return botPatterns.test(userAgent);
+};
+
+/**
  * GET /share/product/:slug
  * Returns HTML with proper meta tags for social sharing
  * Note: "slug" in URL is actually the product SKU
@@ -100,9 +109,20 @@ const generateMetaHtml = (product, pageUrl) => {
 exports.getProductMeta = async (req, res) => {
     try {
         const { slug } = req.params;
-        console.log('[MetaController] Looking for product with sku:', slug);
+        const userAgent = req.get('User-Agent') || '';
+        const isBot = isSocialBot(userAgent);
 
-        // Products use SKU as URL identifier, not a separate "slug" field
+        console.log('[MetaController] Request for product:', slug, '| User-Agent:', userAgent.substring(0, 50), '| isBot:', isBot);
+
+        const pageUrl = `${SITE_URL}/product/${slug}`;
+
+        // If not a bot, just redirect directly to the product page
+        if (!isBot) {
+            console.log('[MetaController] Not a bot, redirecting to:', pageUrl);
+            return res.redirect(302, pageUrl);
+        }
+
+        // For bots, serve the meta tags HTML
         const product = await Product.findOne({
             where: { sku: slug },
             include: [{ model: Category, as: 'Category' }]
@@ -121,15 +141,12 @@ exports.getProductMeta = async (req, res) => {
             }
 
             // Use product found by ID
-            const pageUrl = `${SITE_URL}/product/${productById.sku}`;
-            const html = generateMetaHtml(productById, pageUrl);
+            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`);
             res.set('Content-Type', 'text/html');
             return res.send(html);
         }
 
-        const pageUrl = `${SITE_URL}/product/${slug}`;
         const html = generateMetaHtml(product, pageUrl);
-
         res.set('Content-Type', 'text/html');
         res.send(html);
 
@@ -147,6 +164,15 @@ exports.getArticleMeta = async (req, res) => {
     try {
         const { slug } = req.params;
         const { Article } = require('../models');
+        const userAgent = req.get('User-Agent') || '';
+        const isBot = isSocialBot(userAgent);
+
+        const pageUrl = `${SITE_URL}/articles/${slug}`;
+
+        // If not a bot, just redirect directly to the article page
+        if (!isBot) {
+            return res.redirect(302, pageUrl);
+        }
 
         const article = await Article.findOne({
             where: { slug }
@@ -156,10 +182,9 @@ exports.getArticleMeta = async (req, res) => {
             return res.redirect(SITE_URL);
         }
 
-        const pageUrl = `${SITE_URL}/articles/${slug}`;
         const title = article.title;
         const description = article.excerpt || article.title;
-        let image = article.image_url || `${SITE_URL}/og-image.jpg`;
+        let image = article.image_url || `${SITE_URL}/logo.png`;
 
         // Make image URL absolute
         if (image.startsWith('/')) {
@@ -184,13 +209,9 @@ exports.getArticleMeta = async (req, res) => {
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="${image}">
     <link rel="canonical" href="${pageUrl}">
-    <script>window.location.replace("${pageUrl}");</script>
 </head>
 <body>
-    <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
-    <noscript>
-        <p>Click <a href="${pageUrl}">here</a> if not redirected automatically.</p>
-    </noscript>
+    <p>Amagriya Gorden - ${title}</p>
 </body>
 </html>`;
 
