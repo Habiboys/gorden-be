@@ -78,7 +78,7 @@ const generateInvoiceEmailTemplate = (document) => {
     <body>
         <div class="container">
             <div class="header">
-                <h1>Amagriya Gorden</h1>
+                <h1>Amagriya Gorden/Blind</h1>
                 <p>Pusat Gorden Berkualitas</p>
             </div>
             <div class="content">
