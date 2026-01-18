@@ -35,7 +35,7 @@ const getProductImage = (product) => {
     }
 
     // Fallback
-    return `${SITE_URL}/og-image.jpg`;
+    return `${SITE_URL}/favicon.png`;
 };
 
 /**
@@ -168,9 +168,9 @@ exports.getArticleMeta = async (req, res) => {
         const { Article } = require('../models');
         const userAgent = req.get('User-Agent') || '';
         // Check for bot query param (sent by .htaccess) OR User-Agent
-        const isForcedBot = req.query.bot === 'true'; 
+        const isForcedBot = req.query.bot === 'true';
         const isBot = isForcedBot || isSocialBot(userAgent);
-        
+
         const pageUrl = `${SITE_URL}/articles/${slug}`;
 
         // If not a bot and not forced, just redirect directly to the article page
@@ -187,12 +187,14 @@ exports.getArticleMeta = async (req, res) => {
         }
 
         const title = article.title;
-        const description = article.excerpt || article.title;
-        let image = article.image_url || `${SITE_URL}/logo.png`;
+        const description = (article.excerpt || article.title || '').replace(/\n/g, ' ').substring(0, 200);
+        let image = article.image_url;
 
-        // Make image URL absolute
-        if (image.startsWith('/')) {
+        // Determine image URL
+        if (image && image.startsWith('/')) {
             image = `${API_URL}${image}`;
+        } else if (!image) {
+            image = `${SITE_URL}/favicon.png`; // Fallback to favicon since logo.png is missing
         }
 
         const html = `<!DOCTYPE html>
