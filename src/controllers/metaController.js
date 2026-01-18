@@ -110,13 +110,15 @@ exports.getProductMeta = async (req, res) => {
     try {
         const { slug } = req.params;
         const userAgent = req.get('User-Agent') || '';
-        const isBot = isSocialBot(userAgent);
+        // Check for bot query param (sent by .htaccess) OR User-Agent
+        const isForcedBot = req.query.bot === 'true';
+        const isBot = isForcedBot || isSocialBot(userAgent);
 
-        console.log('[MetaController] Request for product:', slug, '| User-Agent:', userAgent.substring(0, 50), '| isBot:', isBot);
+        console.log('[MetaController] Request for product:', slug, '| User-Agent:', userAgent.substring(0, 50), '| isBot:', isBot, '| forced:', isForcedBot);
 
         const pageUrl = `${SITE_URL}/product/${slug}`;
 
-        // If not a bot, just redirect directly to the product page
+        // If not a bot and not forced, just redirect directly to the product page
         if (!isBot) {
             console.log('[MetaController] Not a bot, redirecting to:', pageUrl);
             return res.redirect(302, pageUrl);
@@ -165,11 +167,13 @@ exports.getArticleMeta = async (req, res) => {
         const { slug } = req.params;
         const { Article } = require('../models');
         const userAgent = req.get('User-Agent') || '';
-        const isBot = isSocialBot(userAgent);
-
+        // Check for bot query param (sent by .htaccess) OR User-Agent
+        const isForcedBot = req.query.bot === 'true'; 
+        const isBot = isForcedBot || isSocialBot(userAgent);
+        
         const pageUrl = `${SITE_URL}/articles/${slug}`;
 
-        // If not a bot, just redirect directly to the article page
+        // If not a bot and not forced, just redirect directly to the article page
         if (!isBot) {
             return res.redirect(302, pageUrl);
         }
