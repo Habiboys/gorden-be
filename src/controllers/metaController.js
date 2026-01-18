@@ -41,14 +41,12 @@ const getProductImage = (product) => {
 /**
  * Generate HTML with meta tags for product
  */
-const generateMetaHtml = (product, pageUrl) => {
+const generateMetaHtml = (product, pageUrl, autoRedirect = true) => {
     const title = product.meta_title || product.name;
     const description = (product.meta_description || product.description || 'Gorden berkualitas dari Amagriya').replace(/\n/g, ' ').substring(0, 200);
     const image = getProductImage(product);
     const siteName = 'Amagriya Gorden';
 
-    // NO meta refresh - it causes redirect loop with .htaccess bot detection
-    // Only JS redirect - bots don't execute JS so they just read meta tags
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -80,11 +78,16 @@ const generateMetaHtml = (product, pageUrl) => {
     
     <link rel="canonical" href="${pageUrl}">
     
-    <!-- JS redirect for users only (bots don't execute JS) -->
-    <script>window.location.replace("${pageUrl}");</script>
+    <!-- JS redirect for users (only if autoRedirect is true) -->
+    ${autoRedirect ? `<script>window.location.replace("${pageUrl}");</script>` : ''}
 </head>
 <body>
-    <p>Redirecting to <a href="${pageUrl}">${title}</a>...</p>
+    <p>Loading preview for: <strong>${title}</strong></p>
+    <p>
+        <a href="${pageUrl}" style="display: inline-block; padding: 10px 20px; background: #EB216A; color: white; text-decoration: none; border-radius: 5px;">
+            Click here to view product
+        </a>
+    </p>
     <noscript>
         <p>Click <a href="${pageUrl}">here</a> if not redirected automatically.</p>
     </noscript>
@@ -143,12 +146,12 @@ exports.getProductMeta = async (req, res) => {
             }
 
             // Use product found by ID
-            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`);
+            const html = generateMetaHtml(productById, `${SITE_URL}/product/${productById.sku}`, !isForcedBot);
             res.set('Content-Type', 'text/html');
             return res.send(html);
         }
 
-        const html = generateMetaHtml(product, pageUrl);
+        const html = generateMetaHtml(product, pageUrl, !isForcedBot);
         res.set('Content-Type', 'text/html');
         res.send(html);
 
@@ -218,6 +221,7 @@ exports.getArticleMeta = async (req, res) => {
 </head>
 <body>
     <p>Amagriya Gorden - ${title}</p>
+    ${isForcedBot ? `<p><a href="${pageUrl}">Click here to read article</a></p>` : ''}
 </body>
 </html>`;
 
