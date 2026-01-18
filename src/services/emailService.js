@@ -88,7 +88,12 @@ const generateInvoiceEmailTemplate = (document) => {
                 
                 <div class="info-box">
                     <p><strong>No. Dokumen:</strong> ${document.document_number}</p>
-                    <p><strong>Tanggal:</strong> ${new Date(document.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p><strong>Tanggal:</strong> ${(() => {
+            const dateVal = document.createdAt || document.created_at || document.date;
+            if (!dateVal) return '-';
+            const d = new Date(dateVal);
+            return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        })()}</p>
                     <p><strong>Total:</strong> <span class="amount">${formatCurrency(document.total_amount)}</span></p>
                     ${document.discount_amount > 0 ? `<p><strong>Diskon:</strong> ${formatCurrency(document.discount_amount)}</p>` : ''}
                 </div>
@@ -97,8 +102,8 @@ const generateInvoiceEmailTemplate = (document) => {
                 
                 <p>Jika ada pertanyaan, silakan hubungi kami:</p>
                 <ul>
-                    <li>WhatsApp: 0812-3456-7890</li>
-                    <li>Email: info@amagriyagorden.com</li>
+                    <li>WhatsApp: +62 895-0896-5456</li>
+                    <li>Email: amagriyacom@gmail.com</li>
                 </ul>
             </div>
             <div class="footer">

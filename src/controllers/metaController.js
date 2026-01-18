@@ -47,8 +47,8 @@ const generateMetaHtml = (product, pageUrl) => {
     const image = getProductImage(product);
     const siteName = 'Amagriya Gorden';
 
-    // Meta refresh with 1s delay for fallback - bots read meta tags immediately
-    // JS redirect as primary for faster experience
+    // NO meta refresh - it causes redirect loop with .htaccess bot detection
+    // Only JS redirect - bots don't execute JS so they just read meta tags
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -80,10 +80,7 @@ const generateMetaHtml = (product, pageUrl) => {
     
     <link rel="canonical" href="${pageUrl}">
     
-    <!-- Fallback redirect with delay (bots read meta tags before this triggers) -->
-    <meta http-equiv="refresh" content="1;url=${pageUrl}">
-    
-    <!-- Immediate JS redirect for users -->
+    <!-- JS redirect for users only (bots don't execute JS) -->
     <script>window.location.replace("${pageUrl}");</script>
 </head>
 <body>
@@ -187,7 +184,6 @@ exports.getArticleMeta = async (req, res) => {
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="${image}">
     <link rel="canonical" href="${pageUrl}">
-    <meta http-equiv="refresh" content="1;url=${pageUrl}">
     <script>window.location.replace("${pageUrl}");</script>
 </head>
 <body>
