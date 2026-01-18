@@ -5,8 +5,35 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+const corsOptions = {
+    origin: (origin, callback) => {
+        // allow server-to-server & postman
+        if (!origin) return callback(null, true);
+
+        if (process.env.NODE_ENV !== 'production') {
+            // development: bebas
+            return callback(null, true);
+        }
+
+        // production: whitelist
+        const allowedOrigins = [
+            'https://amagriya.com',
+            'https://www.amagriya.com'
+        ];
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // handle preflight
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 

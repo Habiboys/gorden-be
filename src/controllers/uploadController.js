@@ -65,9 +65,8 @@ const processAndSaveImage = async (buffer, originalName, req) => {
     console.log(`✅ Image optimized: ${originalName} -> ${filename}`);
     console.log(`   Original: ${(originalSize / 1024).toFixed(1)}KB -> Compressed: ${(newSize / 1024).toFixed(1)}KB (${savings}% savings)`);
 
-    // Construct public URL
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const fileUrl = `${baseUrl}/uploads/${filename}`;
+    // Return only the relative path (frontend will prepend the base URL)
+    const fileUrl = `/uploads/${filename}`;
 
     return { filename, url: fileUrl };
 };
