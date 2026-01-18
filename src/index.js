@@ -31,6 +31,7 @@ const wishlistRoutes = require('./routes/wishlistRoutes');
 const subcategoryRoutes = require('./routes/subcategoryRoutes');
 const calculatorTypeRoutes = require('./routes/calculatorTypeRoutes');
 const badgeRoutes = require('./routes/badgeRoutes');
+const shareRoutes = require('./routes/share.route');
 
 // Serve static files
 app.use('/uploads', express.static('uploads'));
@@ -56,6 +57,9 @@ app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/subcategories', subcategoryRoutes);
 app.use('/api/v1/badges', badgeRoutes);
+
+// Share routes for social media meta tags (serves HTML, not JSON)
+app.use('/share', shareRoutes);
 
 app.get('/', (req, res) => {
     res.send('Gorden Backend API is running');
