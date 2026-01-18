@@ -5,38 +5,14 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-const corsOptions = {
-    origin: (origin, callback) => {
-        // allow server-to-server & postman (no origin)
-        if (!origin) return callback(null, true);
-
-        // production: whitelist
-        const allowedOrigins = [
-            'https://amagriya.com',
-            'https://www.amagriya.com',
-            'http://amagriya.com',
-            'http://www.amagriya.com',
-        ];
-
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-
-        // For development, allow all
-        if (process.env.NODE_ENV !== 'production') {
-            return callback(null, true);
-        }
-
-        console.log('CORS blocked origin:', origin);
-        return callback(new Error('Not allowed by CORS'));
-    },
+// CORS - allow all origins for now
+app.use(cors({
+    origin: true, // Allow all origins
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // handle preflight
+}));
+app.options('*', cors()); // handle preflight
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
