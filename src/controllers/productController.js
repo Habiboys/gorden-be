@@ -106,9 +106,15 @@ const getProducts = async (req, res) => {
             limit: limitVal,
             offset: offset,
             distinct: true, // Important for correct count with includes
+            // Optimize payload: Exclude heavy TEXT/JSON fields not needed for listing
+            attributes: [
+                'id', 'category_id', 'subcategory_id', 'name', 'sku',
+                'price_unit', 'stock', 'images',
+                'is_featured', 'is_new_arrival', 'is_best_seller',
+                'is_warranty', 'is_custom', 'status', 'created_at'
+            ],
             include: [
                 { model: Category, attributes: ['name', 'slug'] },
-                { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net', 'satuan'] },
                 { model: Badge, as: 'badges', required: false }
