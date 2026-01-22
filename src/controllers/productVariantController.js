@@ -93,6 +93,44 @@ exports.create = async (req, res) => {
             });
         }
 
+        // Check for duplicate variant
+        const existingVariants = await ProductVariant.findAll({
+            where: { product_id: productId, is_active: true }
+        });
+
+        // Helper to normalize attribute values (strip L/T prefixes)
+        const normalizeValue = (val) => {
+            if (val === null || val === undefined) return '';
+            return String(val).trim().replace(/^[LT]\s*/i, '');
+        };
+
+        const normalizeAttrs = (attrs) => {
+            if (!attrs || typeof attrs !== 'object') return '{}';
+            const sorted = Object.keys(attrs).sort().reduce((obj, key) => {
+                obj[key] = normalizeValue(attrs[key]);
+                return obj;
+            }, {});
+            return JSON.stringify(sorted);
+        };
+
+        const newKey = normalizeAttrs(attributes) +
+            `-${price_net || price_gross || 0}-` +
+            `${quantity_multiplier || 1}`;
+
+        const isDuplicate = existingVariants.some(v => {
+            const existingKey = normalizeAttrs(v.attributes) +
+                `-${v.price_net || v.price_gross || 0}-` +
+                `${v.quantity_multiplier || 1}`;
+            return existingKey === newKey;
+        });
+
+        if (isDuplicate) {
+            return res.status(400).json({
+                success: false,
+                error: 'Varian dengan atribut dan harga yang sama sudah ada'
+            });
+        }
+
         const variant = await ProductVariant.create({
             product_id: productId,
             attributes,
@@ -152,7 +190,36 @@ exports.bulkCreate = async (req, res) => {
             });
         }
 
-        const variantsData = variants.map(v => ({
+        // Helper to normalize attribute values (strip L/T prefixes)
+        const normalizeValue = (val) => {
+            if (val === null || val === undefined) return '';
+            return String(val).trim().replace(/^[LT]\s*/i, '');
+        };
+
+        // Helper to normalize attributes for comparison
+        const normalizeAttrs = (attrs) => {
+            if (!attrs || typeof attrs !== 'object') return '{}';
+            const sorted = Object.keys(attrs).sort().reduce((obj, key) => {
+                obj[key] = normalizeValue(attrs[key]);
+                return obj;
+            }, {});
+            return JSON.stringify(sorted);
+        };
+
+        // Filter out self-duplicates from payload
+        const seenKeys = new Set();
+        const uniqueVariants = variants.filter(v => {
+            const key = normalizeAttrs(v.attributes || {}) +
+                `-${v.price_net || v.price_gross || 0}-` +
+                `${v.quantity_multiplier || 1}`;
+            if (seenKeys.has(key)) {
+                return false;
+            }
+            seenKeys.add(key);
+            return true;
+        });
+
+        const variantsData = uniqueVariants.map(v => ({
             product_id: productId,
             attributes: v.attributes || {},
             price_gross: v.price_gross || 0,
@@ -164,10 +231,15 @@ exports.bulkCreate = async (req, res) => {
 
         const createdVariants = await ProductVariant.bulkCreate(variantsData);
 
+        const skippedCount = variants.length - uniqueVariants.length;
+        const message = skippedCount > 0
+            ? `${createdVariants.length} variants synced successfully (${skippedCount} duplicates skipped)`
+            : `${createdVariants.length} variants synced successfully`;
+
         res.status(201).json({
             success: true,
             data: createdVariants,
-            message: `${createdVariants.length} variants synced successfully`
+            message
         });
     } catch (error) {
         console.error('Error bulk syncing variants:', error);

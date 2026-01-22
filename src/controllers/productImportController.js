@@ -1,6 +1,6 @@
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
-const { Product, ProductVariant, Category, SubCategory } = require('../models');
+const { Product, ProductVariant, Category, SubCategory, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -329,8 +329,13 @@ const importProducts = async (req, res) => {
  * Import Variants from Excel file with Dynamic Attributes support
  */
 const importVariants = async (req, res) => {
+    // Increase timeout to 10 minutes
+    req.setTimeout(600000);
+    const t = await sequelize.transaction();
+
     try {
         if (!req.file) {
+            await t.rollback();
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
@@ -341,6 +346,7 @@ const importVariants = async (req, res) => {
         const data = XLSX.utils.sheet_to_json(worksheet);
 
         if (data.length === 0) {
+            await t.rollback();
             return res.status(400).json({ success: false, message: 'Excel file is empty' });
         }
 
@@ -348,7 +354,9 @@ const importVariants = async (req, res) => {
         const products = await Product.findAll({ attributes: ['id', 'sku', 'variant_options'] });
         const productMap = {};
         products.forEach(p => {
-            productMap[p.sku] = p.id;
+            if (p.sku) {
+                productMap[p.sku.trim().toLowerCase()] = p.id;
+            }
         });
 
         const results = {
@@ -388,8 +396,9 @@ const importVariants = async (req, res) => {
                     continue;
                 }
 
-                // Lookup product by SKU
-                const productId = productMap[row.product_sku];
+                // Lookup product by SKU (Case insensitive & Trimmed)
+                const skuKey = row.product_sku ? String(row.product_sku).trim().toLowerCase() : '';
+                const productId = productMap[skuKey];
                 if (!productId) {
                     results.errors.push({ row: rowNum, message: `Product with SKU "${row.product_sku}" not found`, data: row });
                     continue;
@@ -401,13 +410,20 @@ const importVariants = async (req, res) => {
                 // Helper to capitalize first letter
                 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+                // Helper to normalize attribute values (strip L/T prefixes) for storage
+                const normalizeForStorage = (val) => {
+                    if (val === null || val === undefined) return '';
+                    return String(val).trim().replace(/^[LT]\s*/i, '');
+                };
+
                 Object.keys(row).forEach(key => {
                     const cleanKey = key.trim();
                     // If not reserved, treat as attribute
                     if (!RESERVED_KEYS.includes(cleanKey.toLowerCase())) {
                         // Use original key casing or Capitalize? Let's Capitalize for consistency
                         const attrName = capitalize(cleanKey);
-                        attributes[attrName] = String(row[key]);
+                        // Normalize values: strip L/T prefix so "L 100" becomes "100"
+                        attributes[attrName] = normalizeForStorage(row[key]);
                     }
                 });
 
@@ -422,40 +438,81 @@ const importVariants = async (req, res) => {
                     attributes['Sibak'] = String(row.sibak);
                 }
 
-                // Initialize tracker for this product if needed
-                if (!productAttributeValues[productId]) {
-                    productAttributeValues[productId] = {};
-                }
+                // --- Duplicate Check ---
+                // Helper to normalize attribute values (strip L/T prefixes)
+                const normalizeValue = (val) => {
+                    if (val === null || val === undefined) return '';
+                    return String(val).trim().replace(/^[LT]\s*/i, '');
+                };
 
-                // Collect attribute values for variant_options update
-                Object.entries(attributes).forEach(([name, val]) => {
-                    if (!productAttributeValues[productId][name]) {
-                        productAttributeValues[productId][name] = new Set();
-                    }
-                    productAttributeValues[productId][name].add(val);
+                const normalizeAttrs = (attrs) => {
+                    if (!attrs || typeof attrs !== 'object') return '{}';
+                    const sorted = Object.keys(attrs).sort().reduce((obj, key) => {
+                        obj[key] = normalizeValue(attrs[key]);
+                        return obj;
+                    }, {});
+                    return JSON.stringify(sorted);
+                };
+
+                const priceNet = parseFloat(row.price_net) || 0;
+                const priceGross = parseFloat(row.price_gross) || 0;
+                const multiplier = row.sibak ? parseInt(row.sibak) : (parseInt(row.quantity_multiplier) || 1);
+                const attributesKey = normalizeAttrs(attributes);
+
+                // Check for existing match in DB (match by ATTRIBUTES only)
+                const existingVariants = await ProductVariant.findAll({
+                    where: { product_id: productId },
+                    transaction: t
                 });
 
-                // Create variant
-                const variant = await ProductVariant.create({
-                    product_id: productId,
-                    attributes: Object.keys(attributes).length > 0 ? attributes : null,
-                    price_gross: parseFloat(row.price_gross) || null,
-                    price_net: parseFloat(row.price_net) || null,
-                    satuan: row.satuan || 'm',
-                    // Use Sibak as multiplier if present, otherwise check explicit multiplier column, else default 1
-                    quantity_multiplier: row.sibak ? parseInt(row.sibak) : (parseInt(row.quantity_multiplier) || 1),
-                    is_active: true
+                const existingMatch = existingVariants.find(v => {
+                    return normalizeAttrs(v.attributes) === attributesKey;
                 });
 
-                results.success.push({
-                    row: rowNum,
-                    variant: {
-                        id: variant.id,
+                // Helper to track attribute values for variant_options
+                const trackAttributes = () => {
+                    if (!productAttributeValues[productId]) productAttributeValues[productId] = {};
+                    Object.entries(attributes).forEach(([name, val]) => {
+                        if (!productAttributeValues[productId][name]) productAttributeValues[productId][name] = new Set();
+                        productAttributeValues[productId][name].add(val);
+                    });
+                };
+
+                let variant;
+                if (existingMatch) {
+                    // UPDATE existing variant
+                    variant = await existingMatch.update({
+                        price_gross: priceGross,
+                        price_net: priceNet,
+                        satuan: row.satuan || existingMatch.satuan,
+                        quantity_multiplier: multiplier,
+                        is_active: true,
+                        attributes: Object.keys(attributes).length > 0 ? attributes : null // Update attributes in case casing/format changed
+                    }, { transaction: t });
+                    trackAttributes();
+                    results.success.push({
+                        row: rowNum,
+                        message: 'Updated existing variant',
+                        variant: { id: variant.id, product_id: variant.product_id, product_sku: row.product_sku }
+                    });
+                } else {
+                    // CREATE new variant
+                    variant = await ProductVariant.create({
                         product_id: productId,
-                        product_sku: row.product_sku,
-                        attributes: variant.attributes
-                    }
-                });
+                        attributes: Object.keys(attributes).length > 0 ? attributes : null,
+                        price_gross: priceGross,
+                        price_net: priceNet,
+                        satuan: row.satuan || 'm',
+                        quantity_multiplier: multiplier,
+                        is_active: true
+                    }, { transaction: t });
+                    trackAttributes();
+                    results.success.push({
+                        row: rowNum,
+                        message: 'Created new variant',
+                        variant: { id: variant.id, product_id: variant.product_id, product_sku: row.product_sku }
+                    });
+                }
 
             } catch (error) {
                 results.errors.push({ row: rowNum, message: error.message, data: row });
@@ -467,7 +524,7 @@ const importVariants = async (req, res) => {
 
         for (const productId of impactedProductIds) {
             try {
-                const product = await Product.findByPk(productId);
+                const product = await Product.findByPk(productId, { transaction: t });
                 if (!product) continue;
 
                 let options = product.variant_options || [];
@@ -482,6 +539,9 @@ const importVariants = async (req, res) => {
                     // Try to find case-insensitive match for existing option name
                     const existingIdx = options.findIndex(opt => opt.name && opt.name.toLowerCase() === name.toLowerCase());
 
+                    // Helper to normalize L/T prefixes for deduplication
+                    const normalizeVal = (val) => String(val).trim().replace(/^[LT]\s*/i, '');
+
                     // Numeric sort if possible, else string sort
                     const valuesArray = [...values].sort((a, b) => {
                         const numA = parseFloat(a);
@@ -491,22 +551,26 @@ const importVariants = async (req, res) => {
                     });
 
                     if (existingIdx >= 0) {
-                        // Merge values
-                        const existingValues = options[existingIdx].values || [];
-                        const mergedValues = [...new Set([...existingValues, ...valuesArray])].sort((a, b) => {
+                        // Merge values - normalize existing values to prevent duplicates
+                        const existingValues = (options[existingIdx].values || []).map(v => normalizeVal(v));
+                        // Merge normalized values and deduplicate
+                        const allValues = [...existingValues, ...valuesArray];
+                        const uniqueNormalized = [...new Set(allValues.map(v => normalizeVal(v)))];
+                        const mergedValues = uniqueNormalized.sort((a, b) => {
                             const numA = parseFloat(a);
                             const numB = parseFloat(b);
                             if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
                             return String(a).localeCompare(String(b));
                         });
                         options[existingIdx].values = mergedValues;
-                        if (isMultiplier) options[existingIdx].is_multiplier = true;
+                        // Use isMultiplierType to match frontend UnifiedVariantManager
+                        if (isMultiplier) options[existingIdx].isMultiplierType = true;
                     } else if (valuesArray.length > 0) {
                         // Add new
                         options.push({
                             name: name,
                             values: valuesArray,
-                            is_multiplier: isMultiplier
+                            isMultiplierType: isMultiplier
                         });
                     }
                 };
@@ -518,20 +582,25 @@ const importVariants = async (req, res) => {
                     updateOrAddOption(attrName, values, isMultiplier);
                 });
 
-                await product.update({ variant_options: options });
+                await product.update({ variant_options: options }, { transaction: t });
 
             } catch (updateError) {
                 console.error(`Failed to update variant options for product ${productId}:`, updateError);
             }
         }
 
+        await t.commit();
+
+        const sampleSkus = results.success.slice(0, 3).map(r => `${r.variant?.product_sku} (PID: ${r.variant?.product_id})`).filter(Boolean).join(', ');
+
         res.json({
             success: true,
-            message: `Import completed: ${results.success.length} created, ${results.skipped.length} skipped, ${results.errors.length} errors`,
+            message: `Import Selesai: ${results.success.length} BERHASIL disimpan (Contoh: ${sampleSkus}...), ${results.skipped.length} dilewati, ${results.errors.length} GAGAL.`,
             results
         });
 
     } catch (error) {
+        await t.rollback();
         console.error('Error importing variants:', error);
         res.status(500).json({ success: false, message: 'Import failed', error: error.message });
     }
