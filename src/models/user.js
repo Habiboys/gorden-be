@@ -8,6 +8,7 @@ module.exports = (sequelize, DataTypes) => {
             User.hasMany(models.Order, { foreignKey: 'user_id' });
             User.hasMany(models.Referral, { foreignKey: 'referrer_id', as: 'Commissions' });
             User.hasMany(models.User, { foreignKey: 'referred_by', as: 'ReferredUsers' });
+            User.belongsToMany(models.Store, { through: 'user_stores', foreignKey: 'user_id', as: 'Stores' });
         }
     }
     User.init({
@@ -24,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
         password_hash: DataTypes.STRING,
         phone: DataTypes.STRING,
         role: {
-            type: DataTypes.ENUM('ADMIN', 'CUSTOMER'),
+            type: DataTypes.ENUM('ADMIN', 'CUSTOMER', 'FINANCE'),
             defaultValue: 'CUSTOMER'
         },
         referral_code: {

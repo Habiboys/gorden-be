@@ -93,6 +93,13 @@ const getProducts = async (req, res) => {
             order = [['created_at', 'DESC']];
         } else if (sort === 'latest') {
             order = [['created_at', 'DESC']];
+        } else if (sort === 'random') {
+            const seed = req.query.seed ? parseInt(req.query.seed, 10) : null;
+            if (seed) {
+                order = [Sequelize.fn('RAND', seed)];
+            } else {
+                order = [Sequelize.fn('RAND')];
+            }
         }
 
         // Pagination

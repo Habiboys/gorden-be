@@ -57,6 +57,9 @@ app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/wishlist', wishlistRoutes);
 app.use('/api/v1/subcategories', subcategoryRoutes);
 app.use('/api/v1/badges', badgeRoutes);
+app.use('/api/v1/stores', require('./routes/store.routes'));
+app.use('/api/v1/finance', require('./routes/finance.routes'));
+app.use('/api/v1/users', require('./routes/user.routes'));
 
 // Share routes for social media meta tags (serves HTML, not JSON)
 app.use('/share', shareRoutes);
