@@ -256,7 +256,7 @@ module.exports = {
             // --- Summary Section (Row 3-5) ---
             worksheet.getCell('A3').value = 'Pic';
             worksheet.getCell('C3').value = 'Kredit';
-            worksheet.getCell('E3').value = 'Debet';
+            worksheet.getCell('E3').value = 'Debit';
             worksheet.getCell('F3').value = 'Saldo';
             ['A3', 'C3', 'E3', 'F3'].forEach(key => {
                 worksheet.getCell(key).font = { bold: true };
@@ -274,8 +274,8 @@ module.exports = {
 
             // --- Transaction Table Header (Row 6) ---
             const tableHeadRow = 6;
-            const headers = ['ID Transaksi', 'Waktu', 'Kategori', 'Kredit', 'Debet', 'Saldo', 'Keterangan', 'PIC'];
-            // Columns: A=ID, B=Waktu, C=Kategori, D=Kredit, E=Debet, F=Saldo, G=Keterangan, H=PIC
+            const headers = ['ID Transaksi', 'Waktu', 'Kategori', 'Kredit', 'Debit', 'Saldo', 'Keterangan', 'PIC'];
+            // Columns: A=ID, B=Waktu, C=Kategori, D=Kredit, E=Debit, F=Saldo, G=Keterangan, H=PIC
             worksheet.getRow(tableHeadRow).values = headers;
             worksheet.getRow(tableHeadRow).font = { bold: true };
 
@@ -301,7 +301,7 @@ module.exports = {
                     new Date(trx.transaction_date).toLocaleString('id-ID'),
                     trx.category,
                     isIncome ? amount : null, // Kredit
-                    !isIncome ? amount : null, // Debet
+                    !isIncome ? amount : null, // Debit
                     runningBalance, // Saldo Running
                     trx.description,
                     trx.PIC?.name || '-'
@@ -312,7 +312,7 @@ module.exports = {
 
                 // Farming & Borders
                 row.getCell(4).numFmt = '#,##0.00'; // Kredit
-                row.getCell(5).numFmt = '#,##0.00'; // Debet
+                row.getCell(5).numFmt = '#,##0.00'; // Debit
                 row.getCell(6).numFmt = '#,##0.00'; // Saldo
 
                 for (let i = 1; i <= headers.length; i++) {
@@ -328,7 +328,7 @@ module.exports = {
                 { width: 22 }, // Waktu
                 { width: 20 }, // Kategori
                 { width: 18 }, // Kredit
-                { width: 18 }, // Debet
+                { width: 18 }, // Debit
                 { width: 18 }, // Saldo
                 { width: 40 }, // Keterangan
                 { width: 15 }  // PIC

@@ -1,4 +1,4 @@
-const { Product, Category, SubCategory, ProductPackage, ProductVariant, Badge, Sequelize } = require('../models');
+const { Product, Category, SubCategory, ProductPackage, ProductVariant, Badge, ProductBadge, Sequelize } = require('../models');
 const { Op } = Sequelize;
 const { deleteImages, cleanupRemovedImages } = require('../utils/imageCleanup');
 
@@ -38,7 +38,7 @@ const formatSku = (sku) => {
 
 const getProducts = async (req, res) => {
     try {
-        const { category, subcategory, search, sort, featured, new_arrival, best_seller, limit, category_id, subcategory_id, page = 1 } = req.query;
+        const { category, subcategory, search, sort, featured, new_arrival, best_seller, limit, category_id, subcategory_id, page = 1, badge_id, badge_ids } = req.query;
         let where = {};
         let order = [['created_at', 'DESC']];
 
@@ -107,6 +107,35 @@ const getProducts = async (req, res) => {
         const pageVal = parseInt(page, 10) || 1;
         const offset = (pageVal - 1) * limitVal;
 
+        // Build badge include options - always include badges for display
+        const badgeInclude = { model: Badge, as: 'badges', required: false };
+
+        // Parse badge filter - support single badge_id or comma-separated badge_ids
+        let badgeFilterIds = [];
+        if (badge_id) {
+            badgeFilterIds = [parseInt(badge_id, 10)];
+        } else if (badge_ids) {
+            badgeFilterIds = badge_ids.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+        }
+
+        console.log('🏷️ Badge filter params:', { badge_id, badge_ids, parsedIds: badgeFilterIds });
+
+        // If badge filter is set, add a WHERE clause to filter products that have any of the selected badges
+        // Using a subquery on the junction table for reliable many-to-many filtering
+        if (badgeFilterIds.length > 0) {
+            // Find product IDs that have any of the selected badges
+            const productIdsWithBadges = await ProductBadge.findAll({
+                where: { badge_id: { [Op.in]: badgeFilterIds } },
+                attributes: ['product_id'],
+                raw: true
+            });
+            const productIds = productIdsWithBadges.map(pb => pb.product_id);
+            console.log('🏷️ Products with selected badges:', productIds.length);
+
+            // Add to the main where clause
+            where.id = { [Op.in]: productIds };
+        }
+
         const queryOptions = {
             where,
             order,
@@ -124,7 +153,7 @@ const getProducts = async (req, res) => {
                 { model: Category, attributes: ['name', 'slug'] },
                 { model: SubCategory, attributes: ['id', 'name', 'slug', 'has_max_length'] },
                 { model: ProductVariant, as: 'variants', attributes: ['id', 'attributes', 'price_gross', 'price_net', 'satuan'] },
-                { model: Badge, as: 'badges', required: false }
+                badgeInclude
             ]
         };
 
