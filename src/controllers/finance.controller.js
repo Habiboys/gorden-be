@@ -348,5 +348,31 @@ module.exports = {
                 return res.status(500).json({ success: false, message: 'Export failed' });
             }
         }
+    },
+
+    // Delete transaction
+    async deleteTransaction(req, res) {
+        try {
+            const { id } = req.params;
+
+            const transaction = await FinanceTransaction.findByPk(id);
+            if (!transaction) {
+                return res.status(404).json({ success: false, message: 'Transaction not found' });
+            }
+
+            await transaction.destroy();
+
+            return res.status(200).json({
+                success: true,
+                message: 'Transaction deleted successfully'
+            });
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to delete transaction',
+                error: error.message
+            });
+        }
     }
 };

@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 
 // Basic auth required for all
 router.post('/transactions', auth(), financeController.createTransaction);
+router.delete('/transactions/:id', auth(['ADMIN', 'SUPERADMIN']), financeController.deleteTransaction);
 router.get('/stores/:store_id/transactions', auth(), financeController.getTransactions);
 router.get('/stores/:store_id/recap', auth(), financeController.getRecap);
 router.get('/stores/:store_id/export', auth(), financeController.exportTransactions);
