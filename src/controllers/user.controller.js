@@ -5,19 +5,48 @@ module.exports = {
     // Get all users
     async getAll(req, res) {
         try {
-            const users = await User.findAll({
-                attributes: { exclude: ['password'] },
+            const { page = 1, limit = 10, search, role } = req.query;
+            console.log('User Controller getAll Query:', req.query);
+            const offset = (page - 1) * limit;
+
+            const { Op } = require('sequelize');
+            const where = {};
+
+            // Search filter
+            if (search) {
+                where[Op.or] = [
+                    { name: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } }
+                ];
+            }
+
+            // Role filter
+            if (role && role !== 'undefined' && role !== 'null') {
+                where.role = role;
+            }
+
+            const { count, rows } = await User.findAndCountAll({
+                where,
+                attributes: { exclude: ['password_hash'] }, // Ensure correct attribute name (password_hash vs password)
                 include: [{
                     model: Store,
                     as: 'Stores',
-                    through: { attributes: [] } // Exclude junction table attributes
+                    through: { attributes: [] }
                 }],
-                order: [['created_at', 'DESC']]
+                order: [['created_at', 'DESC']],
+                limit: parseInt(limit),
+                offset: parseInt(offset)
             });
 
             return res.status(200).json({
                 success: true,
-                data: users
+                data: rows,
+                pagination: {
+                    total: count,
+                    page: parseInt(page),
+                    totalPages: Math.ceil(count / limit),
+                    limit: parseInt(limit)
+                }
             });
         } catch (error) {
             console.error('Error fetching users:', error);
